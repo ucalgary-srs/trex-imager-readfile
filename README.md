@@ -1,4 +1,6 @@
 # TREx Image Data Readfile
+[https://img.shields.io/badge/version-1.0.0-4564FF]
+
 This repository contains code for reading TREx image data using the IDL programming language.
 
 ## Requirements
