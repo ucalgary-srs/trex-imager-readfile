@@ -1,13 +1,16 @@
 # TREx Image Data Readfile
-[![version](https://img.shields.io/badge/version-1.0.0-4564FF)]
+![version](https://img.shields.io/badge/version-1.0.0-blue)
+![license](https://img.shields.io/badge/license-MIT-brightgreen)
+![idl-required](https://img.shields.io/badge/IDL-8.2.3%2B-lightgrey)
 
 This repository contains code for reading TREx image data using the IDL programming language.
 
 ## Requirements
-IDL version 8.2.3 or newer is required.
+- IDL version 8.2.3+
+- Windows 7+, Linux
 
 ## Installation
-Download the program "trex_imager_readfile" and include in your IDL Path.
+Download the program "trex_imager_readfile" and include in your IDL Path or compile manually.
 
 ## Usage Examples
 This readfile can be used in a couple of different ways: 
