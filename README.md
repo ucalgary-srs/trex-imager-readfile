@@ -13,7 +13,7 @@ This repository contains code for reading TREx image data using the IDL programm
 Download the program "trex_imager_readfile" and include in your IDL Path or compile manually.
 
 ## Usage Examples
-This readfile can be used in a couple of different ways: 
+This readfile can be used in a couple of different ways. Below are : 
 
 1) read a single file
 2) read a list of files
