@@ -67,13 +67,13 @@
 ;     1) Using one file, watch frames as movie
 ;         IDL> filename = '20200101_0000_gill_nir-01_8446.pgm.gz'
 ;         IDL> trex_imager_readfile,filename,img,meta,COUNT=nframes
-;         IDL> for i=0,nframes-1 DO TVSCL,images[*,*,i]
+;         IDL> for i=0,nframes-1 DO tvscl,images[*,*,i]
 ;
 ;     2) Using 1 hour of data, display as keogram
 ;         IDL> f = file_search("\path\to\trex\nir\data\stream0\2020\01\01\gill_nir-01\ut05\*"
-;         IDL> trex_imager_readfile,f,img,meta,COUNT=nframes,/VERBOSE
-;         IDL> keogram = TRANSPOSE(TOTAL(img[96:159,*,*],1))
-;         IDL> TVSCL,keogram,ORDER=1
+;         IDL> trex_imager_readfile,f,img,meta,COUNT=nframes,/verbose
+;         IDL> keogram = transpose(total(img[96:159,*,*],1))
+;         IDL> tvscl,keogram,ORDER=1
 ;
 ; NOTES:
 ;     This code was based on Brian Jackel's "themis_imager_readfile" routine
