@@ -23,7 +23,8 @@
 ; INPUTS:
 ;     filename  - a string OR array of strings containing valid TREx image filenames
 ; OUTPUTS:
-;     images    - a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;     images    - PGM files --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;               - PNG files --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
 ;     metadata  - a NFRAMES element array of structures
 ; KEYWORDS:
 ;     FIRST_FRAME       - only read the first frame of the stacked PGM file or PNG tarball file
@@ -47,18 +48,24 @@
 ;
 ; USAGE EXAMPLES:
 ;     1) Read single file
-;         IDL> filename = "20200101_0000_gill_nir-01_8446.pgm.gz"
+;         IDL> filename = '20200101_0000_gill_nir-01_8446.pgm.gz'
 ;         IDL> trex_imager_readfile,filename,img,meta
 ;
 ;     2) Read list of files
-;         IDL> f = file_search("\path\to\trex\nir\data\stream0\2020\01\01\gill_nir-01\ut05\*"
+;         IDL> f = file_search('\path\to\trex\nir\data\stream0\2020\01\01\gill_nir-01\ut05\*')
 ;         IDL> trex_imager_readfile,f,img,meta
 ;
-;     3) 
+;     3) Read first frame only
+;         IDL> f = file_search('\path\to\trex\nir\data\stream0\2020\01\01\gill_nir-01\ut05\*')
+;         IDL> trex_imager_readfile,f,img,meta,/first_frame
+;
+;     4) Read files without processing the metadata
+;         IDL> f = file_search('\path\to\trex\nir\data\stream0\2020\01\01\gill_nir-01\ut05\*')
+;         IDL> trex_imager_readfile,f,img,meta,/no_metadata
 ;
 ; EXTENDED EXAMPLES:
 ;     1) Using one file, watch frames as movie
-;         IDL> filename = "20200101_0000_gill_nir-01_8446.pgm.gz"
+;         IDL> filename = '20200101_0000_gill_nir-01_8446.pgm.gz'
 ;         IDL> trex_imager_readfile,filename,img,meta,COUNT=nframes
 ;         IDL> for i=0,nframes-1 DO TVSCL,images[*,*,i]
 ;
@@ -145,7 +152,7 @@ pro __trex_cleanup_tar_files,file_list,VERBOSE=verbose
   endfor
 end
 
-function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose
+function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame
   ; init
   compile_opt HIDDEN
   n_frames = 0
@@ -158,9 +165,22 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
   if (stregex(strupcase(filename),'.*\.TAR$',/BOOLEAN) eq 1) then begin
     ; file is tarred, need to untar it then process each frame
     if (verbose eq 2) then print,'  Untarring tarball: ' + filename
-    file_untar,filename,untar_dir,FILES=untarred_files
-    file_list = [file_list, untarred_files]
-    cleanup_list = untarred_files
+    if (first_frame ne 0) then begin
+      file_untar,filename,/list,FILES=tar_contents
+      if (n_elements(tar_contents) gt 0) then begin
+        tar_contents = tar_contents[sort(tar_contents)]
+        file_untar,filename,untar_dir,EXTRACT_FILES=tar_contents[0],FILES=untarred_files
+        file_list = [file_list, untarred_files]
+        cleanup_list = untarred_files
+      endif else begin
+        print,'Error - tar file empty'
+        goto,ioerror
+      endelse
+    endif else begin
+      file_untar,filename,untar_dir,FILES=untarred_files
+      file_list = [file_list, untarred_files]
+      cleanup_list = untarred_files
+    endelse
   endif else begin
     ; file is just a png, add to list of files to read
     file_list = [file_list, filename]
@@ -195,28 +215,30 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
 
     ; set metadata
     frame_metadata = {__trex_imager_png_metadata}
-    basename = file_basename(file_list[i])
-    basename_split = strsplit(basename,'_',/extract)
-    year = fix(strmid(basename_split[0], 0, 4))
-    month = fix(strmid(basename_split[0], 4, 2))
-    day = fix(strmid(basename_split[0], 6, 2))
-    hour = fix(strmid(basename_split[1], 0, 2))
-    minute = fix(strmid(basename_split[1], 2, 2))
-    second = fix(strmid(basename_split[1], 4, 2))
-    milli = float(basename_split[2])
-    frame_metadata.site_uid = basename_split[3]
-    frame_metadata.device_uid = basename_split[4]
-    frame_metadata.exposure_duration_request = float(strmid(basename_split[5],0,strlen(basename_split[5])-2)) / 1000.0
-    mode_uid_split = strsplit(basename_split[6],'.',/extract)
-    frame_metadata.mode_uid = mode_uid_split[0]
-    frame_metadata.exposure_start_string = '' + strmid(basename_split[0],0,4) + $
-      '-' + strmid(basename_split[0],4,2) + '-' + strmid(basename_split[0],6,2) + $
-      ' ' + strmid(basename_split[1],0,2) + ':' + strmid(basename_split[1],2,2) + $
-      ':' + strmid(basename_split[1],4,2) + '.' + basename_split[2] + ' utc'
+    if not keyword_set(NO_METADATA) then begin
+      basename = file_basename(file_list[i])
+      basename_split = strsplit(basename,'_',/extract)
+      year = fix(strmid(basename_split[0], 0, 4))
+      month = fix(strmid(basename_split[0], 4, 2))
+      day = fix(strmid(basename_split[0], 6, 2))
+      hour = fix(strmid(basename_split[1], 0, 2))
+      minute = fix(strmid(basename_split[1], 2, 2))
+      second = fix(strmid(basename_split[1], 4, 2))
+      milli = float(basename_split[2])
+      frame_metadata.site_uid = basename_split[3]
+      frame_metadata.device_uid = basename_split[4]
+      frame_metadata.exposure_duration_request = float(strmid(basename_split[5],0,strlen(basename_split[5])-2)) / 1000.0
+      mode_uid_split = strsplit(basename_split[6],'.',/extract)
+      frame_metadata.mode_uid = mode_uid_split[0]
+      frame_metadata.exposure_start_string = '' + strmid(basename_split[0],0,4) + $
+        '-' + strmid(basename_split[0],4,2) + '-' + strmid(basename_split[0],6,2) + $
+        ' ' + strmid(basename_split[1],0,2) + ':' + strmid(basename_split[1],2,2) + $
+        ':' + strmid(basename_split[1],4,2) + '.' + basename_split[2] + ' utc'
 
-    ; set exposure cdf metadata field
-    cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
-    frame_metadata.exposure_start_cdf = epoch
+      ; set exposure cdf metadata field
+      cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
+      frame_metadata.exposure_start_cdf = epoch
+    endif
 
     ; append to image data array
     image_data[0,0,0,n_frames] = frame_img
@@ -529,7 +551,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
     if (stregex(strupcase(filenames[i]),'.*\PNG') eq 0) then begin
       ; file is a PNG (either tarred or not), process as RGB file
       processing_mode = 'png'
-      ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose)
+      ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame)
 
       ; set images and metadata array
       if (first_call eq 1) then begin
@@ -559,7 +581,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
           images_new[0,0,0,0] = images[*,*,*,*]
           images = images_new
         endif
-        
+
         ; add in new image data and metadata
         images[0,0,0,n_frames] = file_images[*,*,*,*]
         metadata = [metadata,file_metadata]
