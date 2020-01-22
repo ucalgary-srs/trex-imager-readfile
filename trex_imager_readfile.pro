@@ -152,7 +152,7 @@ pro __trex_cleanup_tar_files,file_list,VERBOSE=verbose
   endfor
 end
 
-function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame
+function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,untar_extract_supported,idl_version_full_support,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame
   ; init
   compile_opt HIDDEN
   n_frames = 0
@@ -166,17 +166,30 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
     ; file is tarred, need to untar it then process each frame
     if (verbose eq 2) then print,'  Untarring tarball: ' + filename
     if (first_frame ne 0) then begin
-      file_untar,filename,/list,FILES=tar_contents
-      if (n_elements(tar_contents) gt 0) then begin
-        tar_contents = tar_contents[sort(tar_contents)]
-        file_untar,filename,untar_dir,EXTRACT_FILES=tar_contents[0],FILES=untarred_files
-        file_list = [file_list, untarred_files]
+      ; check that we can do this based on the IDL version
+      if (untar_extract_supported eq 0) then begin
+        ; file_untar,/extract is not supported --> extract all files
+        if (verbose eq 2) then print,"  Warning - TREx RGB png.tar file processing with the /first_frame keyword not supported fully in this IDL version, you'll notice a performance difference in this case. Please use version " + idl_version_full_support + "+"
+        file_untar,filename,untar_dir,FILES=untarred_files
+        file_list = untarred_files[sort(untarred_files)]
+        file_list = file_list[0]
         cleanup_list = untarred_files
       endif else begin
-        print,'Error - tar file empty'
-        goto,ioerror
+        ; get list of files in tarball
+        file_untar,filename,/list,FILES=tar_contents
+        if (n_elements(tar_contents) gt 0) then begin
+          ; extract just the first one
+          tar_contents = tar_contents[sort(tar_contents)]
+          file_untar,filename,untar_dir,EXTRACT_FILES=tar_contents[0],FILES=untarred_files
+          file_list = [file_list, untarred_files]
+          cleanup_list = untarred_files
+        endif else begin
+          print,'Error - tar file empty'
+          goto,ioerror
+        endelse
       endelse
     endif else begin
+      ; extract all files
       file_untar,filename,untar_dir,FILES=untarred_files
       file_list = [file_list, untarred_files]
       cleanup_list = untarred_files
@@ -257,7 +270,7 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
   endif
 
   ; cleanup untarred files
-  __trex_cleanup_tar_files,cleanup_list,VERBOSE=verbose
+  if (no_untar_cleanup eq 0) then __trex_cleanup_tar_files,cleanup_list,VERBOSE=verbose
   return,0
 
   ; on error, remove extra unused memory, cleanup files, and return
@@ -267,7 +280,7 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
     image_data = image_data[*,*,*,0:n_frames-1]
     meta_data = meta_data[0:n_frames-1]
   endif
-  __trex_cleanup_tar_files,cleanup_list,VERBOSE=verbose
+  if (no_untar_cleanup eq 0) then __trex_cleanup_tar_files,cleanup_list,VERBOSE=verbose
   return,1
 end
 
@@ -471,6 +484,9 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   n_frames = 0
   n_bytes = 0
   _n_frames = 0
+  idl_version_minimum = '8.2.3'
+  idl_version_full_support = '8.7.1'
+  untar_extract_supported = 1
 
   ; set keyword flags
   if (n_elements(assume_exists) eq 0) then assume_exists = 0
@@ -484,10 +500,32 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   if (n_elements(very_verbose) eq 0) then very_verbose = 0
   if (very_verbose ne 0) then verbose = 2
 
+  ; check IDL version
+  idl_version = !version.release
+  idl_version_split = strsplit(idl_version,'.',/extract)
+  idl_version_major = fix(idl_version_split[0])
+  idl_version_minor = fix(idl_version_split[1])
+  idl_version_micro = fix(idl_version_split[2])
+  if (idl_version_major le 7) then begin
+    ; too old of a release
+    print,'Error - IDL version below 8.2.3 is not supported. You are using version ' + idl_version
+    return
+  endif else if (idl_version_major eq 8 and idl_version_minor eq 2 and idl_version_micro eq 3) then begin
+    ; minimum supported release
+    if (verbose eq 2) then print,'Using minimum supported IDL version of 8.2.3, consider upgrading to ' + idl_version_full_support + '+ for all features'
+    untar_extract_supported = 0
+  endif else if (idl_version_major eq 8 and idl_version_minor le 6) then begin
+    ; RGB untarring with /first_frame not supported
+    if (verbose eq 2) then begin
+      print,'Info - Using IDL version ' + idl_version + ' instead of ' + idl_version_full_support + '+. This version is not fully supported, but, will work for almost all tasks'
+    endif
+    untar_extract_supported = 0
+  endif
+
   ; set untar directory
   if (n_elements(untar_dir) eq 0) then begin
     ; path not supplied, use default based on OS
-    case strlowcase(!VERSION.OS_FAMILY) of
+    case strlowcase(!version.os_family) of
       'unix': untar_dir = '~/trex_imager_readfile_working'
       'windows': untar_dir = 'C:\trex_imager_readfile_working'
     endcase
@@ -551,7 +589,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
     if (stregex(strupcase(filenames[i]),'.*\PNG') eq 0) then begin
       ; file is a PNG (either tarred or not), process as RGB file
       processing_mode = 'png'
-      ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame)
+      ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,untar_extract_supported,idl_version_full_support,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame)
 
       ; set images and metadata array
       if (first_call eq 1) then begin
