@@ -402,6 +402,9 @@ function __trex_pbm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,
 end
 
 function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=minimal_metadata
+  ; init errors
+  on_ioerror,ioerror
+
   ; init metadata variable
   compile_opt HIDDEN
   metadata = {__trex_imager_pbm_metadata}
@@ -415,7 +418,6 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
   ; set temp variable for processing comments
   tmp = strlowcase(metadata.comments)
   if (strlen(tmp) eq 0) then return,1
-  on_ioerror,ioerror
 
   ; set image request start value
   timestring = (stregex(tmp,'"image request start" *([^#]+) utc',/SUBEXPR,/EXTRACT))[1]
@@ -469,8 +471,12 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
   ; return success
   return,0
 
-  ; on error, return failure
+  ; on ioerror, return failure
   ioerror:
+  if not keyword_set(NO_METADATA) then begin
+    print,'Error - could not read metadata, use /no_metadata keyword to supress this message'
+  endif
+  metadata = {__trex_imager_pbm_metadata}
   return,1
 end
 
@@ -646,7 +652,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
 
         ; parse comments
         if (no_metadata eq 0) then begin
-          if __trex_imager_parse_pbm_comments(comments,mdata,MINIMAL_METADATA=minimal_metadata) then break
+          ret = __trex_imager_parse_pbm_comments(comments,mdata,MINIMAL_METADATA=minimal_metadata)
         endif
 
         ; set returning variables
@@ -697,10 +703,10 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   endfor
 
   ; remove extra unused memory
-  if (processing_mode eq 'pbm' and n_frames gt 0) then begin
+  if (processing_mode eq 'pbm' and n_frames ge 0) then begin
     images = images[*,*,0:n_frames-1]
     metadata = metadata[0:n_frames-1]
-  endif else if (processing_mode eq 'png' and n_frames gt 0) then begin
+  endif else if (processing_mode eq 'png' and n_frames ge 0) then begin
     images = images[*,*,*,0:n_frames-1]
     metadata = metadata[0:n_frames-1]
   endif
