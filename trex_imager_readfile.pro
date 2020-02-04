@@ -108,10 +108,10 @@
 ;------------------------
 
 ; definition for the PBM metadata fields
-pro __trex_imager_pbm_metadata__define
+pro trex_imager_pbm_metadata__define
   compile_opt HIDDEN
   dummy = {$
-    __trex_imager_pbm_metadata,$
+    trex_imager_pbm_metadata,$
     site_uid: '',$
     imager_uid: '',$
     site_latitude: 0.0,$
@@ -130,10 +130,10 @@ pro __trex_imager_pbm_metadata__define
 end
 
 ; definition for the PNG metadata fields
-pro __trex_imager_png_metadata__define
+pro trex_imager_png_metadata__define
   compile_opt HIDDEN
   dummy = {$
-    __trex_imager_png_metadata,$
+    trex_imager_png_metadata,$
     site_uid: '',$
     device_uid: '',$
     mode_uid: '',$
@@ -223,11 +223,11 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
     ; allocate memory for image data and metadata if this is the first frame
     if (n_frames eq 0) then begin
       image_data = make_array([channels,width,height,n_elements(file_list)],TYPE=image_size.type,/NOZERO)
-      meta_data = replicate({__trex_imager_png_metadata},n_elements(file_list))
+      meta_data = replicate({trex_imager_png_metadata},n_elements(file_list))
     endif
 
     ; set metadata
-    frame_metadata = {__trex_imager_png_metadata}
+    frame_metadata = {trex_imager_png_metadata}
     if not keyword_set(NO_METADATA) then begin
       basename = file_basename(file_list[i])
       basename_split = strsplit(basename,'_',/extract)
@@ -407,7 +407,7 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
 
   ; init metadata variable
   compile_opt HIDDEN
-  metadata = {__trex_imager_pbm_metadata}
+  metadata = {trex_imager_pbm_metadata}
 
   ; set comments field
   metadata.comments = comments[0]
@@ -476,7 +476,7 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
   if not keyword_set(NO_METADATA) then begin
     print,'Error - could not read metadata, use /no_metadata keyword to supress this message'
   endif
-  metadata = {__trex_imager_pbm_metadata}
+  metadata = {trex_imager_pbm_metadata}
   return,1
 end
 
@@ -661,12 +661,12 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
           dimensions = isize.dimensions[0:isize.n_dimensions]
           dimensions[isize.n_dimensions] = n_start
           images = make_array(dimensions,TYPE=isize.type,/NOZERO)
-          metadata = replicate({__trex_imager_pbm_metadata},n_start)
+          metadata = replicate({trex_imager_pbm_metadata},n_start)
           dimensions[isize.n_dimensions] = n_chunk
         endif else if (n_frames ge n_start) then begin
           ; need to expand the arrays
           images = [ [[images]], [[make_array(dimensions,TYPE=isize.type,/NOZERO)]] ]
-          metadata = [metadata, replicate({__trex_imager_pbm_metadata},n_chunk)]
+          metadata = [metadata, replicate({trex_imager_pbm_metadata},n_chunk)]
           n_start = n_start + n_chunk
         endif
 
