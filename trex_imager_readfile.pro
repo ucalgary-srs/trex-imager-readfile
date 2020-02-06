@@ -6,7 +6,7 @@
 ; NAME:
 ;     TREX_IMAGER_READFILE
 ; VERSION:
-;     1.0.0
+;     1.0.1
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
 ;     Transition Region Explorer (TREx) all-sky camera data.
@@ -237,7 +237,8 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
       hour = fix(strmid(basename_split[1], 0, 2))
       minute = fix(strmid(basename_split[1], 2, 2))
       second = fix(strmid(basename_split[1], 4, 2))
-      milli = float(basename_split[2])
+      micro = float(basename_split[2])
+      milli = micro / 1000.0
       frame_metadata.site_uid = basename_split[3]
       frame_metadata.device_uid = basename_split[4]
       frame_metadata.exposure_duration_request = float(strmid(basename_split[5],0,strlen(basename_split[5])-2)) / 1000.0
@@ -439,7 +440,7 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
   milli = 0.0
   reads,timestring,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.7)'
   milli = round(1000*(second-fix(second)))
-  second = fix(second)
+  second = fix(second)  
 
   ; set exposure start string value
   metadata.exposure_start_string = timestring
