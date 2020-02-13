@@ -1,5 +1,5 @@
 # TREx Image Data Readfile
-![version](https://img.shields.io/badge/version-1.0.1-blue)
+![version](https://img.shields.io/badge/version-1.0.2-blue)
 ![idl-required](https://img.shields.io/badge/IDL-8.2.3%2B-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 

@@ -475,7 +475,7 @@ function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=min
   ; on ioerror, return failure
   ioerror:
   if not keyword_set(NO_METADATA) then begin
-    print,'Error - could not read metadata, use /no_metadata keyword to supress this message'
+    print,'Error - could not read metadata, use /no_metadata keyword to read image'
   endif
   metadata = {trex_imager_pbm_metadata}
   return,1
@@ -584,7 +584,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   endif else begin
     n_start = (n_chunk * n_files) < 2400
   endelse
-
+  
   ; for each file
   total_expected_frames = 0
   for i=0,n_files-1 do begin
@@ -643,7 +643,6 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
         ; while not the end of the file, process using __trex_pbm_readfile
         if (verbose GE 2) then print,' - reading frame: ' + string(n_frames)
         image = __trex_pbm_readfile(LUN=lun,COMMENTS=comments,VERBOSE=verbose)
-        if (image[0] eq -1) then break ; read failure, move on to the next file
 
         ; increment frame counter
         _n_frames = _n_frames + 1
