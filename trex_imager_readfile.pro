@@ -6,7 +6,7 @@
 ; NAME:
 ;     TREX_IMAGER_READFILE
 ; VERSION:
-;     1.0.1
+;     1.0.2
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
 ;     Transition Region Explorer (TREx) all-sky camera data.
