@@ -3,7 +3,7 @@
 ![idl-required](https://img.shields.io/badge/IDL-8.2.3%2B-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 
-This repository contains code for reading TREx image data using the IDL programming language.
+This repository contains code for reading TREx image data using the IDL programming language. The data can be found at https://data.phys.ucalgary.ca.
 
 ## Requirements
 - IDL version 8.2.3+ is required, version 8.7.1+ is recommended.
