@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "trex-imager-readfile"
+version = "1.0.0"
+description = "Read functions for TREx ASI PGM raw files"
+authors = ["Darren Chaddock <dchaddoc@ucalgary.ca>"]
+license = "MIT"
+packages = [
+    { include = "trex_imager_readfile" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+numpy = "^1.19.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+flake8 = "^3.8.4"
+pylint = "^2.6.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
