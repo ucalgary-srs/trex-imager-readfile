@@ -19,7 +19,7 @@ test: test-flake8 test-pytest
 
 test-flake8 flake8:
 	poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-	poetry run flake8 . --count --ignore=W391 --max-complexity=20 --max-line-length=127 --statistics
+	poetry run flake8 . --count --ignore=W391 --max-complexity=25 --max-line-length=127 --statistics
 	
 test-pytest pytest:
 	poetry run pytest
