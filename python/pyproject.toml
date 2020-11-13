@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trex-imager-readfile"
-version = "1.0.0"
+version = "1.0.1"
 description = "Read functions for TREx ASI PGM raw files"
 authors = ["Darren Chaddock <dchaddoc@ucalgary.ca>"]
 license = "MIT"
