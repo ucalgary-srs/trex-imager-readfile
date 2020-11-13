@@ -19,6 +19,10 @@ $ python3 -m pip install trex-imager-readfile
 
 trex-imager-readfile officially supports Python 3.6+.
 
+## Examples
+
+Example Python notebooks can be found in the "examples" directory. Further, some examples can be found in the "Usage" section below.
+
 ## Usage
 
 Import the library using `import trex_imager_readfile`
@@ -28,7 +32,7 @@ Import the library using `import trex_imager_readfile`
 ```python
 >>> import trex_imager_readfile
 >>> filename = "path/to/rgb_data/2020/01/01/fsmi_rgb-01/ut06/20200101_0600_fsmi_rgb-01_full.pgm.gz"
->>> img, meta, problematic_files = trex_imager_readfile.read(filename)
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(filename)
 ```
 
 ### Read multiple files
@@ -36,7 +40,7 @@ Import the library using `import trex_imager_readfile`
 ```python
 >>> import trex_imager_readfile, glob
 >>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
->>> img, meta, problematic_files = trex_imager_readfile.read(file_list)
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list)
 ```
 
 ### Read using multiple worker processes
@@ -44,7 +48,7 @@ Import the library using `import trex_imager_readfile`
 ```python
 >>> import trex_imager_readfile, glob
 >>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
->>> img, meta, problematic_files = trex_imager_readfile.read(file_list, workers=4)
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4)
 ```
 
 ## Development
