@@ -1,7 +1,7 @@
 # TREx All-Sky Imager Raw PGM Data Readfile
 
 [![Github Actions - Tests](https://github.com/ucalgary-aurora/trex-imager-readfile/workflows/tests/badge.svg)](https://github.com/ucalgary-aurora/trex-imager-readfile/actions?query=workflow%3Atests)
-[![PyPI version](https://img.shields.io/pypi/v/themis-imager-readfile.svg)](https://pypi.python.org/pypi/trex-imager-readfile/)
+[![PyPI version](https://img.shields.io/pypi/v/trex-imager-readfile.svg)](https://pypi.python.org/pypi/trex-imager-readfile/)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 [![PyPI Python versions](https://img.shields.io/pypi/pyversions/trex-imager-readfile.svg)](https://pypi.python.org/pypi/trex-imager-readfile/)
 
@@ -12,7 +12,7 @@ Python library for reading Transition Region Explorer (TREx) All-Sky Imager (ASI
 The trex-imager-readfile library is available on PyPI:
 
 ```console
-$ python3 -m pip install themis-imager-readfile
+$ python3 -m pip install trex-imager-readfile
 ```
 
 ## Supported Python Versions
