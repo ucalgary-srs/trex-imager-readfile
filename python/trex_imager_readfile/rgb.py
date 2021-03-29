@@ -55,6 +55,7 @@ def read(file_list, workers=1, tar_tempdir="."):
         pool_data = pool.map(__trex_readfile_worker, file_list)
     except KeyboardInterrupt:
         pool.terminate()  # gracefully kill children
+        return _np.empty((0, 0, 0)), [], []
     else:
         pool.close()
 

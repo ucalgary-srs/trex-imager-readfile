@@ -46,6 +46,7 @@ def read(file_list, workers=1):
         data = pool.map(__blueline_readfile_worker, file_list)
     except KeyboardInterrupt:
         pool.terminate()  # gracefully kill children
+        return _np.empty((0, 0, 0), dtype=__BLUELINE_DT), [], []
     else:
         pool.close()
 
