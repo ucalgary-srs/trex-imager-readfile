@@ -16,6 +16,7 @@ __RGB_PGM_DT = _np.dtype("uint16")
 __RGB_PGM_DT = __RGB_PGM_DT.newbyteorder('>')  # force big endian byte ordering
 __RGB_PNG_DT = _np.dtype("uint8")
 __PNG_METADATA_PROJECT_UID = "trex"
+__EXPECTED_FRAME_COUNT = 20
 
 # dynamic globals
 __worker_tar_tempdir = ""
@@ -64,10 +65,9 @@ def read(file_list, workers=1, tar_tempdir="."):
     image_height = pool_data[0][6]
     image_channels = pool_data[0][7]
     image_dtype = pool_data[0][8]
-    expected_frame_count = pool_data[0][0].shape[-1]
 
     # pre-allocate array sizes (optimization)
-    predicted_num_frames = len(file_list) * expected_frame_count
+    predicted_num_frames = len(file_list) * __EXPECTED_FRAME_COUNT
     if (image_channels > 1):
         images = _np.empty([image_width, image_height, image_channels, predicted_num_frames], dtype=image_dtype)
     else:
