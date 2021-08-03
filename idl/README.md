@@ -11,6 +11,13 @@ This repository contains code for reading TREx image data using the IDL programm
 - IDL version 8.2.3+ is required, version 8.7.1+ is recommended.
 - Windows 7/10, Linux
 
+## Supported Datasets
+
+- Blueline: stream0 PGM files
+- Near-infrared: stream0 PGM files
+- RGB: stream0 single-channel PGM files, stream0.colour 3-channel PNG files, stream0.burst 3-channel PNG files
+- Spectrograph: stream0 PGM files
+
 ## Installation
 
 Download the program "trex_imager_readfile" and include in your IDL Path or compile manually.
