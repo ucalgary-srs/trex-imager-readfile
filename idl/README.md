@@ -1,4 +1,4 @@
-# TREx All-Sky Imager Raw PGM Data Readfile
+# TREx All-Sky Imager Data Readfile
 
 ![version](https://img.shields.io/badge/version-1.0.2-blue)
 ![idl-required](https://img.shields.io/badge/IDL-8.2.3%2B-lightgrey)
