@@ -9,10 +9,10 @@ Python library for reading Transition Region Explorer (TREx) All-Sky Imager (ASI
 
 ## Supported Datasets
 
-- Blueline: stream0 PGM files
-- Near-infrared: stream0 PGM files
-- RGB: stream0 single-channel PGM files, stream0.colour 3-channel PNG files, stream0.burst 3-channel PNG files
-- Spectrograph: stream0 PGM files
+- Blueline: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/blueline/stream0) PGM files
+- Near-infrared: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/NIR/stream0) PGM files
+- RGB: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0) single-channel PGM files, [stream0.colour](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0.colour) 3-channel PNG files, [stream0.burst](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0.burst) 3-channel PNG files
+- Spectrograph: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/spectrograph/stream0) PGM files
 
 ## Installation
 
