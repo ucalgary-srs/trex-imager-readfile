@@ -7,6 +7,13 @@
 
 Python library for reading Transition Region Explorer (TREx) All-Sky Imager (ASI) stream0 raw PGM-file data. The data can be found at https://data.phys.ucalgary.ca.
 
+## Supported Datasets
+
+- Blueline: stream0 PGM files
+- Near-infrared: stream0 PGM files
+- RGB: stream0 single-channel PGM files, stream0.colour 3-channel PNG files, stream0.burst 3-channel PNG files
+- Spectrograph: stream0 PGM files
+
 ## Installation
 
 The trex-imager-readfile library is available on PyPI:
