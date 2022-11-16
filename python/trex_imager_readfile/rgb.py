@@ -16,7 +16,8 @@ __RGB_PGM_DT = _np.dtype("uint16")
 __RGB_PGM_DT = __RGB_PGM_DT.newbyteorder('>')  # force big endian byte ordering
 __RGB_PNG_DT = _np.dtype("uint8")
 __PNG_METADATA_PROJECT_UID = "trex"
-__EXPECTED_FRAME_COUNT = 20
+__FLEX_FRAME_COUNT = 2
+__EXPECTED_FRAME_COUNT = 20 + __FLEX_FRAME_COUNT
 
 # dynamic globals
 __worker_tar_tempdir = ""
