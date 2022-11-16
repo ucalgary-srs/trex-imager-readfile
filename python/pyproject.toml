@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trex-imager-readfile"
-version = "1.0.5"
+version = "1.0.6"
 description = "Read functions for TREx ASI PGM raw files"
 readme = "README.md"
 homepage = "https://github.com/ucalgary-aurora/trex-imager-readfile"
@@ -12,8 +12,8 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.6"
-numpy = "^1.14.0"
+python = "^3.7.2"
+numpy = "^1.21.0"
 opencv-python = "^4.4.0"
 
 [tool.poetry.dev-dependencies]
