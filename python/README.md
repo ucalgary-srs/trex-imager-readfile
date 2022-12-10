@@ -24,7 +24,7 @@ $ python3 -m pip install trex-imager-readfile
 
 ## Supported Python Versions
 
-trex-imager-readfile officially supports Python 3.6+.
+trex-imager-readfile officially supports Python 3.7+.
 
 ## Examples
 
