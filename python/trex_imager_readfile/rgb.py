@@ -19,105 +19,8 @@ __PNG_METADATA_PROJECT_UID = "trex"
 __FLEX_FRAME_COUNT = 2
 __EXPECTED_FRAME_COUNT = 20 + __FLEX_FRAME_COUNT
 
-# dynamic globals
-__worker_tar_tempdir = ""
 
-
-def read(file_list, workers=1, tar_tempdir="."):
-    """
-    Read in a single PGM or PNG.TAR file, or an array of them. All files
-    must be the same type.
-
-    :param file_list: filename or list of filenames
-    :type file_list: str
-    :param workers: number of worker processes to spawn, defaults to 1
-    :type workers: int, optional
-    :param tar_tempdir: path to untar to, defaults to '.'
-    :type tar_tempdir: str, optional
-
-    :return: images, metadata dictionaries, and problematic files
-    :rtype: numpy.ndarray, list[dict], list[dict]
-    """
-    # set globals
-    global __worker_tar_tempdir
-    __worker_tar_tempdir = tar_tempdir
-
-    # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
-    original_sigint_handler = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
-    pool = _Pool(processes=workers)
-    _signal.signal(_signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
-
-    # if input is just a single file name in a string, convert to a list to be fed to the workers
-    if isinstance(file_list, str):
-        file_list = [file_list]
-
-    # call readfile function, run each iteration with a single input file from file_list
-    pool_data = []
-    try:
-        pool_data = pool.map(__trex_readfile_worker, file_list)
-    except KeyboardInterrupt:
-        pool.terminate()  # gracefully kill children
-        return _np.empty((0, 0, 0)), [], []
-    else:
-        pool.close()
-
-    # set sizes
-    image_width = pool_data[0][5]
-    image_height = pool_data[0][6]
-    image_channels = pool_data[0][7]
-    image_dtype = pool_data[0][8]
-
-    # pre-allocate array sizes (optimization)
-    predicted_num_frames = len(file_list) * __EXPECTED_FRAME_COUNT
-    if (image_channels > 1):
-        images = _np.empty([image_width, image_height, image_channels, predicted_num_frames], dtype=image_dtype)
-    else:
-        images = _np.empty([image_width, image_height, predicted_num_frames], dtype=image_dtype)
-    metadata_dict_list = [{}] * predicted_num_frames
-    problematic_file_list = []
-
-    # reorganize data
-    list_position = 0
-    for i in range(0, len(pool_data)):
-        # check if file was problematic
-        if (pool_data[i][2] is True):
-            problematic_file_list.append({
-                "filename": pool_data[i][3],
-                "error_message": pool_data[i][4],
-            })
-
-        # check if any data was read in
-        if (len(pool_data[i][1]) == 0):
-            continue
-
-        # find actual number of frames, this may differ from predicted due to dropped frames, end
-        # or start of imaging
-        real_num_frames = pool_data[i][0].shape[-1]
-
-        # metadata dictionary list at data[][1]
-        metadata_dict_list[list_position:list_position + real_num_frames] = pool_data[i][1]
-        if (image_channels > 1):
-            images[:, :, :, list_position:list_position + real_num_frames] = pool_data[i][0]
-        else:
-            images[:, :, list_position:list_position + real_num_frames] = pool_data[i][0]
-        list_position = list_position + real_num_frames  # advance list position
-
-    # trim unused elements from predicted array sizes
-    metadata_dict_list = metadata_dict_list[0:list_position]
-    if (image_channels > 1):
-        images = _np.delete(images, range(list_position, predicted_num_frames), axis=3)
-    else:
-        images = _np.delete(images, range(list_position, predicted_num_frames), axis=2)
-
-    # ensure entire array views as the dtype
-    images = images.astype(image_dtype)
-
-    # return
-    pool_data = None
-    return images, metadata_dict_list, problematic_file_list
-
-
-def __trex_readfile_worker(file):
+def __trex_readfile_worker(file_obj):
     # init
     images = _np.array([])
     metadata_dict_list = []
@@ -131,23 +34,23 @@ def __trex_readfile_worker(file):
 
     # check file extension to know how to process
     try:
-        if (file.endswith("pgm") or file.endswith("pgm.gz")):
-            return __rgb_readfile_worker_pgm(file)
-        elif (file.endswith("png") or file.endswith("png.tar")):
-            return __rgb_readfile_worker_png(file)
+        if (file_obj["filename"].endswith("pgm") or file_obj["filename"].endswith("pgm.gz")):
+            return __rgb_readfile_worker_pgm(file_obj)
+        elif (file_obj["filename"].endswith("png") or file_obj["filename"].endswith("png.tar")):
+            return __rgb_readfile_worker_png(file_obj)
         else:
-            print("Unrecognized file type: %s" % (file))
+            print("Unrecognized file type: %s" % (file_obj["filename"]))
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print("Failed to process file '%s' " % (file))
+        print("Failed to process file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to process file: %s" % (str(e))
-    return images, metadata_dict_list, problematic, file, error_message, \
+    return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
         image_width, image_height, image_channels, image_dtype
 
 
-def __rgb_readfile_worker_pgm(file):
+def __rgb_readfile_worker_pgm(file_obj):
     # init
     images = _np.array([])
     metadata_dict_list = []
@@ -164,19 +67,19 @@ def __rgb_readfile_worker_pgm(file):
 
     # check file extension to see if it's gzipped or not
     try:
-        if file.endswith("pgm.gz"):
-            unzipped = _gzip.open(file, mode='rb')
-        elif file.endswith("pgm"):
-            unzipped = open(file, mode='rb')
+        if file_obj["filename"].endswith("pgm.gz"):
+            unzipped = _gzip.open(file_obj["filename"], mode='rb')
+        elif file_obj["filename"].endswith("pgm"):
+            unzipped = open(file_obj["filename"], mode='rb')
         else:
-            print("Unrecognized file type: %s" % (file))
-            return images, metadata_dict_list, problematic, file, error_message, \
+            print("Unrecognized file type: %s" % (file_obj["filename"]))
+            return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     except Exception as e:
-        print("Failed to open file '%s' " % (file))
+        print("Failed to open file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
-        return images, metadata_dict_list, problematic, file, error_message, \
+        return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
             image_width, image_height, image_channels, image_dtype
 
     # read the file
@@ -185,12 +88,12 @@ def __rgb_readfile_worker_pgm(file):
         try:
             line = unzipped.readline()
         except Exception as e:
-            print("Error reading before image data in file '%s'" % (file))
+            print("Error reading before image data in file '%s'" % (file_obj["filename"]))
             problematic = True
             metadata_dict_list = []
             images = _np.array([])
             error_message = "error reading before image data: %s" % (str(e))
-            return images, metadata_dict_list, problematic, file, error_message, \
+            return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
 
         # break loop at end of file
@@ -208,7 +111,7 @@ def __rgb_readfile_worker_pgm(file):
                 line_decoded = line.decode("ascii")
             except Exception as e:
                 # skip metadata line if it can't be decoded, likely corrupt file
-                print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file))
+                print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file_obj["filename"]))
                 problematic = True
                 error_message = "error decoding metadata line: %s" % (str(e))
                 continue
@@ -278,11 +181,11 @@ def __rgb_readfile_worker_pgm(file):
     unzipped.close()
 
     # return
-    return images, metadata_dict_list, problematic, file, error_message, \
+    return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
         image_width, image_height, image_channels, image_dtype
 
 
-def __rgb_readfile_worker_png(file):
+def __rgb_readfile_worker_png(file_obj):
     # init
     images = _np.array([])
     metadata_dict_list = []
@@ -297,14 +200,14 @@ def __rgb_readfile_worker_png(file):
 
     # check if it's a tar file
     file_list = []
-    if (file.endswith(".png.tar")):
+    if (file_obj["filename"].endswith(".png.tar")):
         # tar file, extract all frames and add to list
         try:
-            tf = _tarfile.open(file)
+            tf = _tarfile.open(file_obj["filename"])
             file_list = sorted(tf.getnames())
-            tf.extractall(path=__worker_tar_tempdir)
+            tf.extractall(path=file_obj["tar_tempdir"])
             for i in range(0, len(file_list)):
-                file_list[i] = "%s/%s" % (__worker_tar_tempdir, file_list[i])
+                file_list[i] = "%s/%s" % (file_obj["tar_tempdir"], file_list[i])
             tf.close()
             is_tar_file = True
         except Exception as e:
@@ -315,14 +218,14 @@ def __rgb_readfile_worker_png(file):
                         _os.remove(f)
                     except Exception:
                         pass
-            print("Failed to open file '%s' " % (file))
+            print("Failed to open file '%s' " % (file_obj["filename"]))
             problematic = True
             error_message = "failed to open file: %s" % (str(e))
-            return images, metadata_dict_list, problematic, file, error_message, \
+            return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     else:
         # regular png
-        file_list = [file]
+        file_list = [file_obj["filename"]]
 
     # read each png file
     for f in file_list:
@@ -386,5 +289,103 @@ def __rgb_readfile_worker_png(file):
             _os.remove(f)
 
     # return
-    return images, metadata_dict_list, problematic, file, error_message, \
+    return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
         image_width, image_height, image_channels, image_dtype
+
+
+def read(file_list, workers=1, tar_tempdir=_os.getcwd()):
+    """
+    Read in a single PGM or PNG.TAR file, or an array of them. All files
+    must be the same type.
+
+    :param file_list: filename or list of filenames
+    :type file_list: str
+    :param workers: number of worker processes to spawn, defaults to 1
+    :type workers: int, optional
+    :param tar_tempdir: path to untar to, defaults to '.'
+    :type tar_tempdir: str, optional
+
+    :return: images, metadata dictionaries, and problematic files
+    :rtype: numpy.ndarray, list[dict], list[dict]
+    """
+    # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
+    original_sigint_handler = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
+    pool = _Pool(processes=workers)
+    _signal.signal(_signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
+
+    # if input is just a single file name in a string, convert to a list to be fed to the workers
+    if isinstance(file_list, str):
+        file_list = [file_list]
+
+    # convert to object, injecting other data we need for processing
+    processing_list = []
+    for f in file_list:
+        processing_list.append({
+            "filename": f,
+            "tar_tempdir": tar_tempdir,
+        })
+
+    # call readfile function, run each iteration with a single input file from file_list
+    pool_data = []
+    try:
+        pool_data = pool.map(__trex_readfile_worker, processing_list)
+    except KeyboardInterrupt:
+        pool.terminate()  # gracefully kill children
+        return _np.empty((0, 0, 0)), [], []
+    else:
+        pool.close()
+
+    # set sizes
+    image_width = pool_data[0][5]
+    image_height = pool_data[0][6]
+    image_channels = pool_data[0][7]
+    image_dtype = pool_data[0][8]
+
+    # pre-allocate array sizes (optimization)
+    predicted_num_frames = len(processing_list) * __EXPECTED_FRAME_COUNT
+    if (image_channels > 1):
+        images = _np.empty([image_width, image_height, image_channels, predicted_num_frames], dtype=image_dtype)
+    else:
+        images = _np.empty([image_width, image_height, predicted_num_frames], dtype=image_dtype)
+    metadata_dict_list = [{}] * predicted_num_frames
+    problematic_file_list = []
+
+    # reorganize data
+    list_position = 0
+    for i in range(0, len(pool_data)):
+        # check if file was problematic
+        if (pool_data[i][2] is True):
+            problematic_file_list.append({
+                "filename": pool_data[i][3],
+                "error_message": pool_data[i][4],
+            })
+
+        # check if any data was read in
+        if (len(pool_data[i][1]) == 0):
+            continue
+
+        # find actual number of frames, this may differ from predicted due to dropped frames, end
+        # or start of imaging
+        real_num_frames = pool_data[i][0].shape[-1]
+
+        # metadata dictionary list at data[][1]
+        metadata_dict_list[list_position:list_position + real_num_frames] = pool_data[i][1]
+        if (image_channels > 1):
+            images[:, :, :, list_position:list_position + real_num_frames] = pool_data[i][0]
+        else:
+            images[:, :, list_position:list_position + real_num_frames] = pool_data[i][0]
+        list_position = list_position + real_num_frames  # advance list position
+
+    # trim unused elements from predicted array sizes
+    metadata_dict_list = metadata_dict_list[0:list_position]
+    if (image_channels > 1):
+        images = _np.delete(images, range(list_position, predicted_num_frames), axis=3)
+    else:
+        images = _np.delete(images, range(list_position, predicted_num_frames), axis=2)
+
+    # ensure entire array views as the dtype
+    images = images.astype(image_dtype)
+
+    # return
+    pool_data = None
+    return images, metadata_dict_list, problematic_file_list
