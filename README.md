@@ -1,4 +1,4 @@
-# TREx All-Sky Imager Raw PGM Data Readfile
+# TREx All-Sky Imager Raw Data Readfile
 ![supported-languages](https://img.shields.io/badge/Supported%20Languages-IDL%2C%20Python-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-brightgreen)
 
