@@ -60,7 +60,7 @@ Import the library using `import trex_imager_readfile`
 
 ### Read with no output
 
-If a file has issues being read in, it is placed into the `problematic_files` variable, and each error message is also written to stdout. If you'd like the read function to not output print messages to stdout, you can use the `quiet=True` parameter.
+If a file has issues being read in, it is placed into the `problematic_files` variable and each error message is also written to stdout. If you'd like the read function to not output print messages to stdout, you can use the `quiet=True` parameter.
 
 ```python
 >>> import trex_imager_readfile, glob
