@@ -9,6 +9,7 @@ import tarfile as _tarfile
 import os as _os
 import datetime as _datetime
 from multiprocessing import Pool as _Pool
+from functools import partial as _partial
 
 # static globals
 __RGB_PGM_IMAGE_SIZE_BYTES = 480 * 553 * 2
@@ -39,11 +40,14 @@ def __trex_readfile_worker(file_obj):
         elif (file_obj["filename"].endswith("png") or file_obj["filename"].endswith("png.tar")):
             return __rgb_readfile_worker_png(file_obj)
         else:
-            print("Unrecognized file type: %s" % (file_obj["filename"]))
+            if (file_obj["quiet"] is False):
+                print("Unrecognized file type: %s" % (file_obj["filename"]))
+            raise Exception("Unrecognized file type: %s" % ((file_obj["filename"])))
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print("Failed to process file '%s' " % (file_obj["filename"]))
+        if (file_obj["quiet"] is False):
+            import traceback
+            traceback.print_exc()
+            print("Failed to process file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to process file: %s" % (str(e))
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
@@ -72,11 +76,13 @@ def __rgb_readfile_worker_pgm(file_obj):
         elif file_obj["filename"].endswith("pgm"):
             unzipped = open(file_obj["filename"], mode='rb')
         else:
-            print("Unrecognized file type: %s" % (file_obj["filename"]))
+            if (file_obj["quiet"] is False):
+                print("Unrecognized file type: %s" % (file_obj["filename"]))
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     except Exception as e:
-        print("Failed to open file '%s' " % (file_obj["filename"]))
+        if (file_obj["quiet"] is False):
+            print("Failed to open file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
         return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
@@ -88,7 +94,8 @@ def __rgb_readfile_worker_pgm(file_obj):
         try:
             line = unzipped.readline()
         except Exception as e:
-            print("Error reading before image data in file '%s'" % (file_obj["filename"]))
+            if (file_obj["quiet"] is False):
+                print("Error reading before image data in file '%s'" % (file_obj["filename"]))
             problematic = True
             metadata_dict_list = []
             images = _np.array([])
@@ -111,7 +118,8 @@ def __rgb_readfile_worker_pgm(file_obj):
                 line_decoded = line.decode("ascii")
             except Exception as e:
                 # skip metadata line if it can't be decoded, likely corrupt file
-                print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file_obj["filename"]))
+                if (file_obj["quiet"] is False):
+                    print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file_obj["filename"]))
                 problematic = True
                 error_message = "error decoding metadata line: %s" % (str(e))
                 continue
@@ -164,7 +172,8 @@ def __rgb_readfile_worker_pgm(file_obj):
                 # change 1d numpy array into 480x553 matrix with correctly located pixels
                 image_matrix = _np.reshape(image_np, (480, 553, 1))
             except Exception as e:
-                print("Failed reading image data frame: %s" % (str(e)))
+                if (file_obj["quiet"] is False):
+                    print("Failed reading image data frame: %s" % (str(e)))
                 metadata_dict_list.pop()  # remove corresponding metadata entry
                 problematic = True
                 error_message = "image data read failure: %s" % (str(e))
@@ -218,7 +227,8 @@ def __rgb_readfile_worker_png(file_obj):
                         _os.remove(f)
                     except Exception:
                         pass
-            print("Failed to open file '%s' " % (file_obj["filename"]))
+            if (file_obj["quiet"] is False):
+                print("Failed to open file '%s' " % (file_obj["filename"]))
             problematic = True
             error_message = "failed to open file: %s" % (str(e))
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
@@ -250,7 +260,8 @@ def __rgb_readfile_worker_png(file_obj):
             }
             metadata_dict_list.append(metadata_dict)
         except Exception as e:
-            print("Failed to read metadata from file '%s' " % (f))
+            if (file_obj["quiet"] is False):
+                print("Failed to read metadata from file '%s' " % (f))
             problematic = True
             error_message = "failed to read metadata: %s" % (str(e))
             break
@@ -277,7 +288,8 @@ def __rgb_readfile_worker_png(file_obj):
                 else:
                     images = _np.dstack([images, image_matrix])  # depth stack images (on last axis)
         except Exception as e:
-            print("Failed reading image data frame: %s" % (str(e)))
+            if (file_obj["quiet"] is False):
+                print("Failed reading image data frame: %s" % (str(e)))
             metadata_dict_list.pop()  # remove corresponding metadata entry
             problematic = True
             error_message = "image data read failure: %s" % (str(e))
@@ -293,7 +305,7 @@ def __rgb_readfile_worker_png(file_obj):
         image_width, image_height, image_channels, image_dtype
 
 
-def read(file_list, workers=1, tar_tempdir=_os.getcwd()):
+def read(file_list, workers=1, tar_tempdir=_os.getcwd(), quiet=False):
     """
     Read in a single PGM or PNG.TAR file, or an array of them. All files
     must be the same type.
@@ -304,6 +316,8 @@ def read(file_list, workers=1, tar_tempdir=_os.getcwd()):
     :type workers: int, optional
     :param tar_tempdir: path to untar to, defaults to '.'
     :type tar_tempdir: str, optional
+    :param quiet: reduce output while reading data
+    :type quiet: bool, optional
 
     :return: images, metadata dictionaries, and problematic files
     :rtype: numpy.ndarray, list[dict], list[dict]
@@ -323,6 +337,7 @@ def read(file_list, workers=1, tar_tempdir=_os.getcwd()):
         processing_list.append({
             "filename": f,
             "tar_tempdir": tar_tempdir,
+            "quiet": quiet,
         })
 
     # call readfile function, run each iteration with a single input file from file_list

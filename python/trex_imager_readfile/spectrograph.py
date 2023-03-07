@@ -5,6 +5,7 @@ import gzip as _gzip
 import numpy as _np
 import signal as _signal
 from multiprocessing import Pool as _Pool
+from functools import partial as _partial
 
 # globals
 __SPECTROGRAPH_IMAGE_SIZE_BYTES = 1024 * 256 * 2
@@ -12,80 +13,7 @@ __SPECTROGRAPH_DT = _np.dtype("uint16")
 __SPECTROGRAPH_DT = __SPECTROGRAPH_DT.newbyteorder('>')  # force big endian byte ordering
 
 
-def read(file_list, workers=1):
-    """
-    Read in a single PGM file or set of PGM files
-
-    :param file_list: filename or list of filenames
-    :type file_list: str
-    :param workers: number of worker processes to spawn, defaults to 1
-    :type workers: int, optional
-
-    :return: images, metadata dictionaries, and problematic files
-    :rtype: numpy.ndarray, list[dict], list[dict]
-    """
-    # pre-allocate array sizes (optimization)
-    predicted_num_frames = len(file_list) * 4
-    images = _np.empty([1024, 256, predicted_num_frames], dtype=__SPECTROGRAPH_DT)
-    metadata_dict_list = [{}] * predicted_num_frames
-    problematic_file_list = []
-
-    # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
-    original_sigint_handler = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
-    pool = _Pool(processes=workers)
-    _signal.signal(_signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
-
-    # if input is just a single file name in a string, convert to a list to be fed to the workers
-    if isinstance(file_list, str):
-        file_list = [file_list]
-
-    # call readfile function, run each iteration with a single input file from file_list
-    # NOTE: structure of data - data[file][metadata dictionary lists = 1, images = 0][frame]
-    data = []
-    try:
-        data = pool.map(__spectrograph_readfile_worker, file_list)
-    except KeyboardInterrupt:
-        pool.terminate()  # gracefully kill children
-        return _np.empty((0, 0, 0), dtype=__SPECTROGRAPH_DT), [], []
-    else:
-        pool.close()
-
-    # reorganize data
-    list_position = 0
-    for i in range(0, len(data)):
-        # check if file was problematic
-        if (data[i][2] is True):
-            problematic_file_list.append({
-                "filename": data[i][3],
-                "error_message": data[i][4],
-            })
-
-        # check if any data was read in
-        if (len(data[i][1]) == 0):
-            continue
-
-        # find actual number of frames, this may differ from predicted due to dropped frames, end
-        # or start of imaging
-        real_num_frames = data[i][0].shape[2]
-
-        # metadata dictionary list at data[][1]
-        metadata_dict_list[list_position:list_position + real_num_frames] = data[i][1]
-        images[:, :, list_position:list_position + real_num_frames] = data[i][0]  # image arrays at data[][0]
-        list_position = list_position + real_num_frames  # advance list position
-
-    # trim unused elements from predicted array sizes
-    metadata_dict_list = metadata_dict_list[0:list_position]
-    images = _np.delete(images, range(list_position, predicted_num_frames), axis=2)
-
-    # ensure entire array views as uint16
-    images = images.astype(_np.uint16)
-
-    # return
-    data = None
-    return images, metadata_dict_list, problematic_file_list
-
-
-def __spectrograph_readfile_worker(file):
+def __spectrograph_readfile_worker(file, quiet=False):
     # init
     images = _np.array([])
     metadata_dict_list = []
@@ -103,10 +31,12 @@ def __spectrograph_readfile_worker(file):
         elif file.endswith("pgm"):
             unzipped = open(file, mode='rb')
         else:
-            print("Unrecognized file type: %s" % (file))
+            if (quiet is False):
+                print("Unrecognized file type: %s" % (file))
             return images, metadata_dict_list, problematic, file, error_message
     except Exception as e:
-        print("Failed to open file '%s' " % (file))
+        if (quiet is False):
+            print("Failed to open file '%s' " % (file))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
         return images, metadata_dict_list, problematic, file, error_message
@@ -117,7 +47,8 @@ def __spectrograph_readfile_worker(file):
         try:
             line = unzipped.readline()
         except Exception as e:
-            print("Error reading before image data in file '%s'" % (file))
+            if (quiet is False):
+                print("Error reading before image data in file '%s'" % (file))
             problematic = True
             metadata_dict_list = []
             images = _np.array([])
@@ -139,7 +70,8 @@ def __spectrograph_readfile_worker(file):
                 line_decoded = line.decode("ascii")
             except Exception as e:
                 # skip metadata line if it can't be decoded, likely corrupt file
-                print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file))
+                if (quiet is False):
+                    print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file))
                 problematic = True
                 error_message = "error decoding metadata line: %s" % (str(e))
                 continue
@@ -183,7 +115,8 @@ def __spectrograph_readfile_worker(file):
                 # change 1d numpy array into 1024x256 matrix with correctly located pixels
                 image_matrix = _np.reshape(image_np, (1024, 256, 1))
             except Exception as e:
-                print("Failed reading image data frame: %s" % (str(e)))
+                if (quiet is False):
+                    print("Failed reading image data frame: %s" % (str(e)))
                 metadata_dict_list.pop()  # remove corresponding metadata entry
                 problematic = True
                 error_message = "image data read failure: %s" % (str(e))
@@ -201,3 +134,78 @@ def __spectrograph_readfile_worker(file):
 
     # return
     return images, metadata_dict_list, problematic, file, error_message
+
+
+def read(file_list, workers=1, quiet=False):
+    """
+    Read in a single PGM file or set of PGM files
+
+    :param file_list: filename or list of filenames
+    :type file_list: str
+    :param workers: number of worker processes to spawn, defaults to 1
+    :type workers: int, optional
+    :param quiet: reduce output while reading data
+    :type quiet: bool, optional
+
+    :return: images, metadata dictionaries, and problematic files
+    :rtype: numpy.ndarray, list[dict], list[dict]
+    """
+    # pre-allocate array sizes (optimization)
+    predicted_num_frames = len(file_list) * 4
+    images = _np.empty([1024, 256, predicted_num_frames], dtype=__SPECTROGRAPH_DT)
+    metadata_dict_list = [{}] * predicted_num_frames
+    problematic_file_list = []
+
+    # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
+    original_sigint_handler = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
+    pool = _Pool(processes=workers)
+    _signal.signal(_signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
+
+    # if input is just a single file name in a string, convert to a list to be fed to the workers
+    if isinstance(file_list, str):
+        file_list = [file_list]
+
+    # call readfile function, run each iteration with a single input file from file_list
+    # NOTE: structure of data - data[file][metadata dictionary lists = 1, images = 0][frame]
+    data = []
+    try:
+        data = pool.map(_partial(__spectrograph_readfile_worker, quiet=quiet), file_list)
+    except KeyboardInterrupt:
+        pool.terminate()  # gracefully kill children
+        return _np.empty((0, 0, 0), dtype=__SPECTROGRAPH_DT), [], []
+    else:
+        pool.close()
+
+    # reorganize data
+    list_position = 0
+    for i in range(0, len(data)):
+        # check if file was problematic
+        if (data[i][2] is True):
+            problematic_file_list.append({
+                "filename": data[i][3],
+                "error_message": data[i][4],
+            })
+
+        # check if any data was read in
+        if (len(data[i][1]) == 0):
+            continue
+
+        # find actual number of frames, this may differ from predicted due to dropped frames, end
+        # or start of imaging
+        real_num_frames = data[i][0].shape[2]
+
+        # metadata dictionary list at data[][1]
+        metadata_dict_list[list_position:list_position + real_num_frames] = data[i][1]
+        images[:, :, list_position:list_position + real_num_frames] = data[i][0]  # image arrays at data[][0]
+        list_position = list_position + real_num_frames  # advance list position
+
+    # trim unused elements from predicted array sizes
+    metadata_dict_list = metadata_dict_list[0:list_position]
+    images = _np.delete(images, range(list_position, predicted_num_frames), axis=2)
+
+    # ensure entire array views as uint16
+    images = images.astype(_np.uint16)
+
+    # return
+    data = None
+    return images, metadata_dict_list, problematic_file_list
