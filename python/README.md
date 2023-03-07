@@ -19,7 +19,7 @@ Python library for reading Transition Region Explorer (TREx) All-Sky Imager (ASI
 The trex-imager-readfile library is available on PyPI:
 
 ```console
-$ python3 -m pip install trex-imager-readfile
+$ pip install trex-imager-readfile
 ```
 
 ## Supported Python Versions
@@ -56,6 +56,16 @@ Import the library using `import trex_imager_readfile`
 >>> import trex_imager_readfile, glob
 >>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4)
+```
+
+### Read with no output
+
+If a file has issues being read in, it is placed into the `problematic_files` variable, and each error message is also written to stdout. If you'd like the read function to not output print messages to stdout, you can use the `quiet=True` parameter.
+
+```python
+>>> import trex_imager_readfile, glob
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4, quiet=True)
 ```
 
 ## Development
