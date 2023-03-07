@@ -9,7 +9,6 @@ import tarfile as _tarfile
 import os as _os
 import datetime as _datetime
 from multiprocessing import Pool as _Pool
-from functools import partial as _partial
 
 # static globals
 __RGB_PGM_IMAGE_SIZE_BYTES = 480 * 553 * 2
