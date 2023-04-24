@@ -6,7 +6,7 @@
 ; NAME:
 ;     TREX_IMAGER_READFILE
 ; VERSION:
-;     1.0.2
+;     1.1.0
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
 ;     Transition Region Explorer (TREx) all-sky camera data.
@@ -23,11 +23,15 @@
 ; INPUTS:
 ;     filename  - a string OR array of strings containing valid TREx image filenames
 ; OUTPUTS:
-;     images    - PGM files --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
-;               - PNG files --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;     images    - PGM files (TREx NIR, Blueline, Spectrograph)
+;                   --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;               - H5 files (TREx RGB nominal cadence)
+;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;               - PNG files (TREx RGB burst cadence)
+;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
 ;     metadata  - a NFRAMES element array of structures
 ; KEYWORDS:
-;     FIRST_FRAME       - only read the first frame of the stacked PGM file or PNG tarball file
+;     FIRST_FRAME       - only read the first frame of a 1-min file (H5, stacked PGM, PNG tarball)
 ;     NO_METADATA       - don't read or process metadata (use if file has no metadata or you don't
 ;                         want to read it)
 ;     MINIMAL_METADATA  - set the least required metadata fields (slightly faster)
@@ -38,9 +42,8 @@
 ;     SHOW_DATARATE     - show the read datarate stats for each file processed (usually used
 ;                         with /VERBOSE keyword)
 ;     UNTAR_DIR         - specify the directory to untar RGB colour PNG files to, default
-;                         is 'C:\trex_imager_readfile_working' on Windows and
-;                         '~/trex_imager_readfile_working' on Linux (usage
-;                         ex. UNTAR_DIR='path\for\files')
+;                         is IDL_TMPDIR on Windows and '~/.trex_imager_readfile' on
+;                         Linux (usage ex. UNTAR_DIR='path\for\files')
 ;     NO_UNTAR_CLEANUP  - don't remove files after untarring to the UNTAR_DIR and reading
 ;
 ; CATEGORY:
@@ -82,6 +85,7 @@
 ;
 ; MODIFICATION HISTORY:
 ;     2020-01-19: Darren Chaddock - creation based on themis_imager_readfile
+;     2023-04-17: Darren Chaddock - updated TREx RGB reading to work on HDF5 dataset
 ;
 ;------------------------
 ; MIT License
@@ -107,11 +111,11 @@
 ; SOFTWARE.
 ;------------------------
 
-; definition for the PBM metadata fields
-pro trex_imager_pbm_metadata__define
-  compile_opt HIDDEN
+; definition for the PGM metadata fields
+pro trex_imager_pgm_metadata__define
+  compile_opt idl2, HIDDEN
   dummy = {$
-    trex_imager_pbm_metadata,$
+    trex_imager_pgm_metadata,$
     site_uid: '',$
     imager_uid: '',$
     site_latitude: 0.0,$
@@ -131,7 +135,7 @@ end
 
 ; definition for the PNG metadata fields
 pro trex_imager_png_metadata__define
-  compile_opt HIDDEN
+  compile_opt idl2, HIDDEN
   dummy = {$
     trex_imager_png_metadata,$
     site_uid: '',$
@@ -143,7 +147,30 @@ pro trex_imager_png_metadata__define
   }
 end
 
+; definition for the H5 metadata fields
+pro trex_imager_h5_metadata__define
+  compile_opt idl2, HIDDEN
+  dummy = {$
+    trex_imager_h5_metadata,$
+    site_uid: '',$
+    imager_uid: '',$
+    site_latitude: 0.0,$
+    site_longitude: 0.0,$
+    exposure_start_string: '',$
+    exposure_start_cdf: 0.0d0,$
+    exposure_duration_request: 0.0,$
+    exposure_duration_actual: 0.0,$
+    ccd_size: [0,0],$
+    ccd_center: [0,0],$
+    ccd_offset: [0,0],$
+    ccd_binning: [0,0],$
+    frame_size: [0,0],$
+    comments: ''$
+  }
+end
+
 pro __trex_cleanup_tar_files,file_list,VERBOSE=verbose
+  compile_opt idl2, HIDDEN
   ; for each file
   if (verbose eq 2) then print,'  Cleaning up untarred files'
   for i=0,n_elements(file_list)-1 do begin
@@ -152,9 +179,205 @@ pro __trex_cleanup_tar_files,file_list,VERBOSE=verbose
   endfor
 end
 
+function __trex_parse_pgm_comments,comments,metadata,MINIMAL_METADATA=minimal_metadata
+  ; init errors
+  on_ioerror,ioerror
+
+  ; init metadata variable
+  compile_opt idl2, HIDDEN
+  metadata = {trex_imager_pgm_metadata}
+
+  ; set comments field
+  metadata.comments = comments[0]
+  for i=1,n_elements(comments)-1 do begin
+    metadata.comments = metadata.comments + string(13b) + comments[i]
+  endfor
+
+  ; set temp variable for processing comments
+  tmp = strlowcase(metadata.comments)
+  if (strlen(tmp) eq 0) then return,1
+
+  ; set image request start value
+  timestring = (stregex(tmp,'"image request start" *([^#]+) utc',/SUBEXPR,/EXTRACT))[1]
+  if (timestring eq "") then timestring = (stregex(tmp,'time *([^#]+) *$',/SUBEXPR,/EXTRACT))[1]
+  if (timestring eq "") then begin
+    message,'Error - could not find time information'
+    return,1
+  endif
+  timestring_split = strsplit(timestring,'"',/extract)
+  timestring = strtrim(strmid(timestring_split[0],0,strlen(timestring_split[0])-1))
+
+  ; parse timestring
+  year = 0
+  month = 0
+  day = 0
+  hour = 0
+  minute = 0
+  second = 0.0
+  milli = 0.0
+  reads,timestring,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.7)'
+  milli = round(1000*(second-fix(second)))
+  second = fix(second)
+
+  ; set exposure start string value
+  metadata.exposure_start_string = timestring
+
+  ; set exposure start CDF value
+  cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
+  metadata.exposure_start_cdf = epoch
+
+  ; if MINIMAL_METADATA keyword is set, then set the values
+  if not keyword_set(MINIMAL_METADATA) then begin
+    metadata.site_uid = (stregex(tmp,'"site unique *id" ([a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
+    metadata.imager_uid = (stregex(tmp,'"imager unique *id" ([a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
+    metadata.site_latitude = (stregex(tmp,'"*latitude" ([a-z0-9-]+.[a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
+    metadata.site_longitude = (stregex(tmp,'"*longitude" ([a-z0-9-]+.[a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
+    metadata.ccd_size[0] = (stregex(tmp,'"CCD xsize" ([0-9]+) pixels',/SUBEXPR,/EXTRACT,/FOLD_CASE))[1]
+    metadata.ccd_size[1] = (stregex(tmp,'"CCD ysize" ([0-9]+) pixels',/SUBEXPR,/EXTRACT,/FOLD_CASE))[1]
+    exposure = stregex(tmp,'"exposure options"[^#]*',/EXTRACT)
+    metadata.frame_size = (stregex(exposure,'width=([0-9]+).*height=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
+    metadata.ccd_offset = (stregex(exposure,'xoffset=([0-9]+).*yoffset=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
+    metadata.ccd_binning = (stregex(exposure,'xbin=([0-9]+).*ybin=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
+    metadata.exposure_duration_request = (stregex(exposure,'msec=([0-9]+)',/SUBEXPR,/EXTRACT))[1]
+    metadata.exposure_duration_actual = (stregex(tmp,'"exposure.*plus.*readout" *([0-9\.]+) ms',/SUBEXPR,/EXTRACT))[1]
+
+    ; convert exposure milliseconds to seconds
+    metadata.exposure_duration_request = metadata.exposure_duration_request / 1d3
+    metadata.exposure_duration_actual = metadata.exposure_duration_actual / 1d3
+  endif
+
+  ; return success
+  return,0
+
+  ; on ioerror, return failure
+  ioerror:
+  if not keyword_set(NO_METADATA) then begin
+    print,'Error - could not read metadata, use /no_metadata keyword to read image'
+  endif
+  metadata = {trex_imager_pgm_metadata}
+  return,1
+end
+
+function __trex_parse_h5_frame_metadata_line,metadata_line,key,value
+  colon_idx = strpos(metadata_line, ':')
+  key = strmid(metadata_line, 0, colon_idx)
+  value = strmid(metadata_line, colon_idx+2, strlen(metadata_line)-colon_idx)
+  return,0
+end
+
+function __trex_generate_h5_comments_str,all_attributes,this_frame_key,this_frame_meta
+  ; init
+  comments_str = ''
+  comments_list = list()
+
+  ; add each global metadata line
+  keys = all_attributes.keys()
+  for i=0,n_elements(all_attributes)-1 do begin
+    ; skip frame metadata keys
+    if (strpos(keys[i], 'Frame ') ge 0) then continue
+
+    ; add to comments string
+    line = '"' + keys[i] + '" ' + all_attributes[keys[i]]
+    comments_list.Add,line
+  endfor
+
+  ; add in frame metadata lines
+  for i=0,n_elements(this_frame_meta)-1 do begin
+    ret = __trex_parse_h5_frame_metadata_line(this_frame_meta[i],key,value)
+    line = '"' + key + '" ' + value
+    comments_list.Add,line
+  endfor
+
+  ; sort the list
+  comments_list = comments_list.sort()
+
+  ; append all to comments string
+  for i=0,n_elements(comments_list)-1 do begin
+    comments_str += comments_list[i]
+    if (i lt n_elements(comments_list)-1) then begin
+      comments_str += string(10B)
+    endif
+  endfor
+
+  ; return
+  return,comments_str
+end
+
+function __trex_parse_h5_metadata,attributes,metadata,img_dims,MINIMAL_METADATA=minimal_metadata
+  ; for each expected frame
+  meta_idx = 0
+  for second=0,57,3 do begin
+    ; init for this second
+    this_attr_list = !NULL
+
+    ; search for corresponding frame attribute
+    this_attr_key = 'Frame ' + string(second,format='(I2.2)') + ' Meta'
+    if (attributes.hasKey(this_attr_key) eq 1) then begin
+      this_attr_list = attributes[this_attr_key]
+    endif
+
+    ; skip further work if key for this frame is not found
+    if (this_attr_list eq !NULL) then continue
+
+    ; set metadata fields
+    effective_exposure_length = 0.0
+    for i=0,n_elements(this_attr_list)-1 do begin
+      if (strpos(strlowcase(this_attr_list[i]), 'image request start') eq 0) then begin
+        ret = __trex_parse_h5_frame_metadata_line(this_attr_list[i],key,value)
+        metadata[meta_idx].exposure_start_string = strlowcase(value)
+      endif
+      if (strpos(strlowcase(this_attr_list[i]), 'effective image exposure') eq 0) then begin
+        ret = __trex_parse_h5_frame_metadata_line(this_attr_list[i],key,value)
+        effective_exposure_length = float(strmid(value, 6, strlen(value)-6-3)) * 1000.0
+      endif
+    endfor
+
+    ; set exposure cdf metadata field
+    year = 0
+    month = 0
+    day = 0
+    hour = 0
+    minute = 0
+    second = 0.0
+    milli = 0.0
+    reads,metadata[meta_idx].exposure_start_string,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.7)'
+    milli = round(1000*(second-fix(second)))
+    second = fix(second)
+    cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
+    metadata[meta_idx].exposure_start_cdf = epoch
+
+    ; set remaining 'global' metadata fields
+    if not keyword_set(MINIMAL_METADATA) then begin
+      metadata[meta_idx].site_uid = attributes['Site unique ID']
+      metadata[meta_idx].imager_uid = attributes['Imager unique ID']
+      metadata[meta_idx].site_latitude = attributes['Geographic latitude']
+      metadata[meta_idx].site_longitude = attributes['Geographic longitude']
+      if (n_elements(img_dims) eq 4) then begin
+        metadata[meta_idx].ccd_size = [img_dims[1],img_dims[2]]
+        metadata[meta_idx].ccd_center = [floor(img_dims[1]/2),floor(img_dims[2]/2)]
+        metadata[meta_idx].ccd_offset = [0,0]
+        metadata[meta_idx].ccd_binning = [0,0]
+        metadata[meta_idx].frame_size = [img_dims[1],img_dims[2]]
+      endif
+      metadata[meta_idx].exposure_duration_request = effective_exposure_length
+      metadata[meta_idx].exposure_duration_actual = effective_exposure_length
+
+      ; combine global and frame metadata together into the comments string
+      comments_str = __trex_generate_h5_comments_str(attributes,this_attr_key,this_attr_list)
+      metadata[meta_idx].comments = comments_str
+    endif
+
+    ; increment metadata index
+    meta_idx += 1
+  endfor
+
+  ; return success
+  return,0
+end
+
 function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,untar_extract_supported,idl_version_full_support,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame
   ; init
-  compile_opt HIDDEN
+  compile_opt idl2, HIDDEN
   n_frames = 0
   n_bytes = 0
   file_list = []
@@ -285,8 +508,81 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
   return,1
 end
 
-function __trex_pbm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,TUPLE_TYPE=tuple_type,MAXVAL=maxval
+function __trex_h5_readfile,filename,image_data,meta_data,dimension_details,n_frames,n_bytes,VERBOSE=verbose,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,FIRST_FRAME=first_frames
+  ; init
+  compile_opt idl2, HIDDEN
+  n_frames = 0
+  n_bytes = 0
+  dimension_details = [0, 0, 0, 1]  ; the '1' is to designate BYTE type, the other fields get filled in when data is read
+
+  ; open file
+  file_id = h5f_open(filename)
+  dataset_id = h5d_open(file_id, '/data')
+
+  ; read image data
+  image_data = h5d_read(dataset_id)
+  dataspace_id = h5d_get_space(dataset_id)
+  dimensions = h5s_get_simple_extent_dims(dataspace_id)
+  finfo = file_info(filename)
+
+  ; set image variables
+  dimension_details[0] = dimensions[0]
+  dimension_details[1] = dimensions[1]
+  dimension_details[2] = dimensions[2]
+  n_frames = dimensions[3]
+  n_bytes = finfo.size
+
+  ; read metadata attributes
+  if not keyword_set(NO_METADATA) then begin
+    attributes = hash()
+    num_attributes = h5a_get_num_attrs(dataset_id)
+    for i=0,num_attributes-1 do begin
+      attribute_id = h5a_open_idx(dataset_id,i)
+      attribute_name = h5a_get_name(attribute_id)
+      attribute_data = h5a_read(attribute_id)
+      attributes[attribute_name] = attribute_data
+      h5a_close,attribute_id
+    endfor
+  endif
+
+  ; close handlers
+  h5s_close,dataspace_id
+  h5d_close,dataset_id
+  h5f_close,file_id
+
+  ; re-orient image
+  image_data[0,*,*,*] = reform(reverse(reform(image_data[0,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
+  image_data[1,*,*,*] = reform(reverse(reform(image_data[1,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
+  image_data[2,*,*,*] = reform(reverse(reform(image_data[2,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
+
+  ; populate metadata object
+  meta_data = replicate({trex_imager_h5_metadata},n_frames)
+  if not keyword_set(NO_METADATA) then begin
+    ret = __trex_parse_h5_metadata(attributes,meta_data,dimension_details,MINIMAL_METADATA=minimal_metadata)
+  endif
+
+  ; remove extra unused memory
+  if (n_frames gt 0 and n_frames lt n_elements(file_list)) then begin
+    image_data = image_data[*,*,*,0:n_frames-1]
+    meta_data = meta_data[0:n_frames-1]
+  endif
+
+  ; normal return
+  return,0
+
+  ; on error, remove extra unused memory, cleanup files, and return
+  ioerror:
+  print,'Error - could not process PNG file'
+  if (n_frames gt 0) then begin
+    image_data = image_data[*,*,*,0:n_frames-1]
+    meta_data = meta_data[0:n_frames-1]
+  endif
+  return,1
+end
+
+function __trex_pgm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,MAXVAL=maxval
   ; set error cases
+  compile_opt idl2, HIDDEN
   if not keyword_set(verbose) then on_error,2
   on_ioerror,ioerror
 
@@ -402,87 +698,9 @@ function __trex_pbm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,
   return,-1L
 end
 
-function __trex_imager_parse_pbm_comments,comments,metadata,MINIMAL_METADATA=minimal_metadata
-  ; init errors
-  on_ioerror,ioerror
-
-  ; init metadata variable
-  compile_opt HIDDEN
-  metadata = {trex_imager_pbm_metadata}
-
-  ; set comments field
-  metadata.comments = comments[0]
-  for i=1,n_elements(comments)-1 do begin
-    metadata.comments = metadata.comments + string(13b) + comments[i]
-  endfor
-
-  ; set temp variable for processing comments
-  tmp = strlowcase(metadata.comments)
-  if (strlen(tmp) eq 0) then return,1
-
-  ; set image request start value
-  timestring = (stregex(tmp,'"image request start" *([^#]+) utc',/SUBEXPR,/EXTRACT))[1]
-  if (timestring eq "") then timestring = (stregex(tmp,'time *([^#]+) *$',/SUBEXPR,/EXTRACT))[1]
-  if (timestring eq "") then begin
-    message,'Error - could not find time information'
-    return,1
-  endif
-  timestring_split = strsplit(timestring,'"',/extract)
-  timestring = strtrim(strmid(timestring_split[0],0,strlen(timestring_split[0])-1))
-
-  ; parse timestring
-  year = 0
-  month = 0
-  day = 0
-  hour = 0
-  minute = 0
-  second = 0.0
-  milli = 0.0
-  reads,timestring,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.7)'
-  milli = round(1000*(second-fix(second)))
-  second = fix(second)  
-
-  ; set exposure start string value
-  metadata.exposure_start_string = timestring
-
-  ; set exposure start CDF value
-  cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
-  metadata.exposure_start_cdf = epoch
-
-  ; if MINIMAL_METADATA keyword is set, then set the values
-  if not keyword_set(MINIMAL_METADATA) then begin
-    metadata.site_uid = (stregex(tmp,'"site unique *id" ([a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
-    metadata.imager_uid = (stregex(tmp,'"imager unique *id" ([a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
-    metadata.site_latitude = (stregex(tmp,'"*latitude" ([a-z0-9-]+.[a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
-    metadata.site_longitude = (stregex(tmp,'"*longitude" ([a-z0-9-]+.[a-z0-9-]+)',/SUBEXPR,/EXTRACT))[1]
-    metadata.ccd_size[0] = (stregex(tmp,'"CCD xsize" ([0-9]+) pixels',/SUBEXPR,/EXTRACT,/FOLD_CASE))[1]
-    metadata.ccd_size[1] = (stregex(tmp,'"CCD ysize" ([0-9]+) pixels',/SUBEXPR,/EXTRACT,/FOLD_CASE))[1]
-    exposure = stregex(tmp,'"exposure options"[^#]*',/EXTRACT)
-    metadata.frame_size = (stregex(exposure,'width=([0-9]+).*height=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
-    metadata.ccd_offset = (stregex(exposure,'xoffset=([0-9]+).*yoffset=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
-    metadata.ccd_binning = (stregex(exposure,'xbin=([0-9]+).*ybin=([0-9]+)',/SUBEXPR,/EXTRACT))[1:2]
-    metadata.exposure_duration_request = (stregex(exposure,'msec=([0-9]+)',/SUBEXPR,/EXTRACT))[1]
-    metadata.exposure_duration_actual = (stregex(tmp,'"exposure.*plus.*readout" *([0-9\.]+) ms',/SUBEXPR,/EXTRACT))[1]
-
-    ; convert exposure milliseconds to seconds
-    metadata.exposure_duration_request = metadata.exposure_duration_request / 1d3
-    metadata.exposure_duration_actual = metadata.exposure_duration_actual / 1d3
-  endif
-
-  ; return success
-  return,0
-
-  ; on ioerror, return failure
-  ioerror:
-  if not keyword_set(NO_METADATA) then begin
-    print,'Error - could not read metadata, use /no_metadata keyword to read image'
-  endif
-  metadata = {trex_imager_pbm_metadata}
-  return,1
-end
-
 pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose,VERY_VERBOSE=very_verbose,SHOW_DATARATE=show_datarate,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,ASSUME_EXISTS=assume_exists,FIRST_FRAME=first_frame,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup
   ; init
+  COMPILE_OPT IDL2
   stride = 0
   time0 = systime(1)
   filenames = ''
@@ -533,8 +751,8 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   if (n_elements(untar_dir) eq 0) then begin
     ; path not supplied, use default based on OS
     case strlowcase(!version.os_family) of
-      'unix': untar_dir = '~/trex_imager_readfile_working'
-      'windows': untar_dir = 'C:\trex_imager_readfile_working'
+      'unix': untar_dir = '~/.trex_imager_readfile_idl'
+      'windows': untar_dir = getenv('IDL_TMPDIR') + '\trex_imager_readfile'
     endcase
   endif else begin
     last_char = strmid(untar_dir,strlen(untar_dir)-1)
@@ -584,7 +802,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   endif else begin
     n_start = (n_chunk * n_files) < 2400
   endelse
-  
+
   ; for each file
   total_expected_frames = 0
   for i=0,n_files-1 do begin
@@ -592,11 +810,21 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
     if (verbose gt 0) then print,' Reading file: ' + filenames[i]
     on_ioerror,fail
 
-    ; determine what type of file (pgm/pgm.gz or png/png.tar)
-    if (stregex(strupcase(filenames[i]),'.*\PNG') eq 0) then begin
-      ; file is a PNG (either tarred or not), process as RGB file
-      processing_mode = 'png'
-      ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,untar_extract_supported,idl_version_full_support,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame)
+    ; determine what type of file (pgm/pgm.gz, png/png.tar, or h5)
+    if (stregex(strupcase(filenames[i]),'.*\PNG') eq 0) or (stregex(strupcase(filenames[i]),'.*\H5') eq 0) then begin
+      if (stregex(strupcase(filenames[i]),'.*\PNG') eq 0) then begin
+        ; file is a PNG (either tarred or not)
+
+        processing_mode = 'png'
+        ret = __trex_png_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,untar_extract_supported,idl_version_full_support,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup,VERBOSE=verbose,NO_METADATA=no_metadata,FIRST_FRAME=first_frame)
+      endif else begin
+        ; file is an h5
+        processing_mode = 'h5'
+
+        ; read file
+        if (verbose GE 2) then print,' - reading frame: ' + string(n_frames)
+        ret = __trex_h5_readfile(filenames[i],file_images,file_metadata,file_dimension_details,file_nframes,file_total_bytes,VERBOSE=verbose,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,FIRST_FRAME=first_frame)
+      endelse
 
       ; set images and metadata array
       if (first_call eq 1) then begin
@@ -635,14 +863,16 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
       ; increment number of overall frames and increase n_bytes
       n_frames = n_frames + file_nframes
       n_bytes = n_bytes + file_total_bytes
+    endif else if (stregex(strupcase(filenames[i]),'.*\H5') eq 0) then begin
+
     endif else begin
       ; file is likely PGM/PGM.GZ, process
-      processing_mode = 'pbm'
+      processing_mode = 'pgm'
       openr,lun,filenames[i],/GET_LUN,COMPRESS=stregex(strupcase(filenames[i]),'.*\.GZ$',/BOOLEAN),/SWAP_IF_LITTLE_ENDIAN
       while not eof(lun) do begin
-        ; while not the end of the file, process using __trex_pbm_readfile
+        ; while not the end of the file, process using __trex_pgm_readfile
         if (verbose GE 2) then print,' - reading frame: ' + string(n_frames)
-        image = __trex_pbm_readfile(LUN=lun,COMMENTS=comments,VERBOSE=verbose)
+        image = __trex_pgm_readfile(LUN=lun,COMMENTS=comments,VERBOSE=verbose)
 
         ; increment frame counter
         _n_frames = _n_frames + 1
@@ -652,7 +882,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
 
         ; parse comments
         if (no_metadata eq 0) then begin
-          ret = __trex_imager_parse_pbm_comments(comments,mdata,MINIMAL_METADATA=minimal_metadata)
+          ret = __trex_parse_pgm_comments(comments,mdata,MINIMAL_METADATA=minimal_metadata)
         endif
 
         ; set returning variables
@@ -661,12 +891,12 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
           dimensions = isize.dimensions[0:isize.n_dimensions]
           dimensions[isize.n_dimensions] = n_start
           images = make_array(dimensions,TYPE=isize.type,/NOZERO)
-          metadata = replicate({trex_imager_pbm_metadata},n_start)
+          metadata = replicate({trex_imager_pgm_metadata},n_start)
           dimensions[isize.n_dimensions] = n_chunk
         endif else if (n_frames ge n_start) then begin
           ; need to expand the arrays
           images = [ [[images]], [[make_array(dimensions,TYPE=isize.type,/NOZERO)]] ]
-          metadata = [metadata, replicate({trex_imager_pbm_metadata},n_chunk)]
+          metadata = [metadata, replicate({trex_imager_pgm_metadata},n_chunk)]
           n_start = n_start + n_chunk
         endif
 
@@ -703,10 +933,10 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
   endfor
 
   ; remove extra unused memory
-  if (processing_mode eq 'pbm' and n_frames ge 0) then begin
+  if (processing_mode eq 'pgm' and n_frames ge 0) then begin
     images = images[*,*,0:n_frames-1]
     metadata = metadata[0:n_frames-1]
-  endif else if (processing_mode eq 'png' and n_frames ge 0) then begin
+  endif else if (((processing_mode eq 'png') or (processing_mode eq 'h5')) and n_frames ge 0) then begin
     images = images[*,*,*,0:n_frames-1]
     metadata = metadata[0:n_frames-1]
   endif

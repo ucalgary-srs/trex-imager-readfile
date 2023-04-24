@@ -6,6 +6,9 @@ This repository contains code for reading Transition Region Explorer (TREx) All-
 
 There exists readfile software for both IDL and Python. Navigate to each language subdirectory in this repository to see their specific readmes.
 
+- [IDL installation README](https://github.com/ucalgary-aurora/trex-imager-readfile/tree/main/idl)
+- [Python installation README](https://github.com/ucalgary-aurora/trex-imager-readfile/tree/main/python)
+
 ## Supported Datasets
 
 - Blueline: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/blueline/stream0) PGM files

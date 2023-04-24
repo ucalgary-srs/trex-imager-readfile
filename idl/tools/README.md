@@ -1,0 +1,1 @@
+Note - these tools are not required for trex_imager_readfile.pro to function. They are merely here as extras that can assist with further data processing.
