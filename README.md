@@ -1,10 +1,10 @@
 # TREx All-Sky Imager Raw Data Readfile
 
 ![Support languages](https://img.shields.io/badge/Supported%20Languages-IDL%2C%20Python-lightgrey)
-![Support platforms](https://img.shields.io/badge/Supported%Platforms-Windows%2C%20Linux%2C%20Mac-lightgrey)
+![Support platforms](https://img.shields.io/badge/Supported%20Platforms-Windows%2C%20Linux%2C%20Mac-lightgrey)
 ![MIT License](https://img.shields.io/badge/License-MIT-brightgreen)
-![Supported IDL versions](https://img.shields.io/badge/Supported%20IDL-8.7.1%2B-blue)
 [![Support Python versions](https://img.shields.io/badge/Supported%20Python-3.8%20%7C%203.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-blue)](https://pypi.python.org/pypi/trex-imager-readfile/)
+![Supported IDL versions](https://img.shields.io/badge/Supported%20IDL-8.7.2%2B-blue)
 [![Python Version](https://img.shields.io/pypi/v/trex-imager-readfile.svg?label=Python%20Package)](https://pypi.python.org/pypi/trex-imager-readfile)
 ![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.1.0-blue)
 [![Github Actions - Tests](https://github.com/ucalgary-aurora/trex-imager-readfile/workflows/tests/badge.svg)](https://github.com/ucalgary-aurora/trex-imager-readfile/actions?query=workflow%3Atests)
@@ -13,7 +13,7 @@ This repository contains code for reading Transition Region Explorer (TREx) All-
 
 There exists readfile software for both IDL and Python. Below are guides for each language for installation, updating, and basic usage.
 
-The datasets supported by these readfiles includes:
+The datasets supported by these readfiles include:
   - Blueline: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/blueline/stream0) PGM files
   - Near-infrared: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/NIR/stream0) PGM files
   - RGB: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0) nominal 3s cadence colour images in HDF5 files, and [stream0.burst](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0.burst) 3Hz cadence colour images
@@ -21,7 +21,7 @@ The datasets supported by these readfiles includes:
 
 ## Installation
 
-This library can be installed for Python or IDL, with instructions for each in the below sections.
+This library can be installed for Python or IDL. Python installation is done using `pip` and IDL installation is done using `ipm`.
 
 ### Python
 
@@ -36,12 +36,12 @@ $ python
 
 ### IDL
 
-Since IDL 8.7.1, there exists an IDL package manager called [ipm](https://www.l3harrisgeospatial.com/docs/ipm.html#INSTALL). We can use this to install the trex-imager-readfile library with a single command. This is the recommended way of installing the library.
+Since IDL 8.7.1, there exists an IDL package manager called [ipm](https://www.l3harrisgeospatial.com/docs/ipm.html#INSTALL). We can use this to install the trex-imager-readfile library with a single command.
 
 1. From the IDL command prompt, run the following:
 
     ```idl
-    IDL> ipm,/install,'https://aurora.phys.ucalgary.ca/public/trex-imager-readfile/latest.zip'
+    IDL> ipm,/install,'https://aurora.phys.ucalgary.ca/public/trex-imager-readfile-idl/latest.zip'
     ```
 
 2. Add the following to your startup file, or run the command manually using the IDL command prompt:
@@ -156,19 +156,9 @@ IDL> trex_imager_readfile,filename,img,meta,/no_metadata
 
 ## Advanced Installation Methods
 
-## Python
-
-### Bleeding edge
-
-The trex-imager-readfile library can be installed by directly using the Github URL with pip. This version will be the most bleeding edge and may have unexpected bugs.
-
-`$ pip install http://`
-
 ### IDL
 
-You can alternatively install the trex-imager-readfile library manually by downloading the ZIP file and extracting it into, or adding it to, your IDL path. Or, by using the Github repository URL. Instructions for these two more advanced installation methods are below.
-
-#### Manually
+You can alternatively install the trex-imager-readfile library manually by downloading the ZIP file and extracting it into, or adding it to, your IDL path. 
 
 1. Download the latest release [here]()
 2. Extract the zip file into your IDL path (or add it as a directory to your IDL path)
@@ -181,36 +171,20 @@ You can alternatively install the trex-imager-readfile library manually by downl
 
 4. Reset your IDL session by either clicking the Reset button in the IDL editor or by typing `.reset` into the IDL command prompt.
 
-#### Bleeding edge
-
-If you want to install the most bleeding-edge version, use `ipm` and the Github repository URL:
-
-1. Install library from Github URL with the following command:
-
-    ```idl
-    IDL> ipm,/install,'https://github.com/ucalgary-aurora/trex-imager-readfile'
-    ```
-
-2. Add the following to your startup file (or run the command manually using the IDL command prompt).
-
-    ```
-    [ open your startup.pro file and put the following in it ]
-    .run trex_imager_readfile_startup
-    ```
-
-3. Reset your IDL session by either clicking the Reset button in the IDL editor or by typing `.reset` into the IDL command prompt.
-
 ## Development
 
-Clone the repository and install dependencies using Poetry.
+### Python 
+
+#### Local development installation
 
 ```console
 $ git clone https://github.com/ucalgary-aurora/trex-imager-readfile.git
 $ cd trex-imager-readfile/python
-$ make install
+$ pip install poetry
+$ poetry install
 ```
 
-## Testing
+#### Running test suite
 
 ```console
 $ cd python
@@ -220,3 +194,19 @@ $ make test-flake8
 $ make test-pylint
 $ make test-pytest
 ```
+
+### IDL
+
+#### Preparing a new distributable package
+
+When a new release is ready for deployment, there are a few tasks that need to be done.
+
+1. Increment the version number and change the date in `idlpackage.json`, `aurorax_helpers.pro`, and `README.md`.
+2. Generate a new distributable Zip file ([more info](https://www.l3harrisgeospatial.com/docs/ipm.html#CREATE))
+
+    ```idl
+    IDL> ipm,/create,'path_to_code',name='idl-aurorax'
+    ```
+
+3. Upload the generated Zip file to https://data.aurorax.space, and update the symlink for latest.zip
+4. Create a new release in Github repository
