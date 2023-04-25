@@ -16,7 +16,7 @@ There exists readfile software for both IDL and Python. Below are guides for eac
 The datasets supported by these readfiles include:
   - Blueline: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/blueline/stream0) PGM files
   - Near-infrared: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/NIR/stream0) PGM files
-  - RGB: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0) nominal 3s cadence colour images in HDF5 files, and [stream0.burst](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0.burst) 3Hz cadence colour images
+  - RGB: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0) nominal 3s cadence colour images (HDF5), and [stream0.burst](https://data.phys.ucalgary.ca/sort_by_project/TREx/RGB/stream0.burst) 3Hz cadence colour images (PNG)
   - Spectrograph: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/spectrograph/stream0) PGM files
 
 ## Installation
@@ -160,7 +160,7 @@ IDL> trex_imager_readfile,filename,img,meta,/no_metadata
 
 You can alternatively install the trex-imager-readfile library manually by downloading the ZIP file and extracting it into, or adding it to, your IDL path. 
 
-1. Download the latest release [here]()
+1. Download the latest release [here](https://aurora.phys.ucalgary.ca/public/trex-imager-readfile-idl/latest.zip)
 2. Extract the zip file into your IDL path (or add it as a directory to your IDL path)
 3. Add the following to your startup file (or run the command manually using the IDL command prompt).
 
