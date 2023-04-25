@@ -1,12 +1,6 @@
-.PHONY: install update test test-flake8 test-pytest clean publish
+.PHONY: update test test-flake8 test-pytest clean publish
 
 all:
-
-poetry:
-	python -m pip install poetry
-
-install: poetry
-	poetry install
 
 update upgrade:
 	python -m pip install --upgrade poetry
