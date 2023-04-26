@@ -140,7 +140,7 @@ def __rgb_readfile_worker_pgm(file_obj):
                     # is a list already
                     metadata_dict[key].append(value)
                 else:
-                    metadata_dict[key] = [metadata_dict[key]]
+                    metadata_dict[key] = [metadata_dict[key], value]
             else:
                 # normal metadata value
                 metadata_dict[key] = value
