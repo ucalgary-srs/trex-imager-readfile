@@ -68,6 +68,11 @@ def __rgb_readfile_worker_pgm(file_obj):
     image_channels = 1
     image_dtype = __RGB_PGM_DT
 
+    # Set metadata values
+    file_split = _os.path.basename(file_obj["filename"]).split('_')
+    site_uid = file_split[3]
+    device_uid = file_split[4]
+
     # check file extension to see if it's gzipped or not
     try:
         if file_obj["filename"].endswith("pgm.gz"):
@@ -140,16 +145,6 @@ def __rgb_readfile_worker_pgm(file_obj):
                 # normal metadata value
                 metadata_dict[key] = value
 
-            # set the site/device uids, or inject the site and device UIDs if they are missing
-            if ("Site unique ID" not in metadata_dict):
-                metadata_dict["Site unique ID"] = site_uid
-            else:
-                site_uid = metadata_dict["Site unique ID"]
-            if ("Imager unique ID" not in metadata_dict):
-                metadata_dict["Imager unique ID"] = device_uid
-            else:
-                device_uid = metadata_dict["Imager unique ID"]
-
             # split dictionaries up per frame, exposure plus initial readout is
             # always the end of metadata for frame
             if (key.startswith("Effective image exposure")):
@@ -187,6 +182,13 @@ def __rgb_readfile_worker_pgm(file_obj):
 
     # close gzip file
     unzipped.close()
+
+    # set the site/device uids, or inject the site and device UIDs if they are missing
+    if ("Site unique ID" not in metadata_dict):
+        metadata_dict["Site unique ID"] = site_uid
+
+    if ("Imager unique ID" not in metadata_dict):
+        metadata_dict["Imager unique ID"] = device_uid
 
     # return
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
