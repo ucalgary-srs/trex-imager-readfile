@@ -9,9 +9,14 @@
 ![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.1.1-blue)
 [![Github Actions - Tests](https://github.com/ucalgary-aurora/trex-imager-readfile/workflows/tests/badge.svg)](https://github.com/ucalgary-aurora/trex-imager-readfile/actions?query=workflow%3Atests)
 
-This repository contains code for reading Transition Region Explorer (TREx) All-Sky Imager (ASI) raw data. The data can be found at https://data.phys.ucalgary.ca.
+This repository contains code for reading Transition Region Explorer (TREx) All-Sky Imager (ASI) raw data. The data can be found at https://data.phys.ucalgary.ca. There exists readfile software for both IDL and Python.
 
-There exists readfile software for both IDL and Python. Below are guides for each language for installation, updating, and basic usage.
+Quick Links:
+  - [Installation](#installation)
+  - [Updating](#updating)
+  - [Examples](#examples)
+  - [Advanced Installation Methods](#advanced-installation-methods)
+  - [Development](#development)
 
 The datasets supported by these readfiles include:
   - Blueline: [stream0](https://data.phys.ucalgary.ca/sort_by_project/TREx/blueline/stream0) PGM files
