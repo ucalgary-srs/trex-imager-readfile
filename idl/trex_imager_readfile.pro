@@ -6,7 +6,7 @@
 ; NAME:
 ;     TREX_IMAGER_READFILE
 ; VERSION:
-;     1.1.0
+;     1.1.1
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
 ;     Transition Region Explorer (TREx) all-sky camera data.
@@ -580,9 +580,8 @@ function __trex_h5_readfile,filename,image_data,meta_data,dimension_details,n_fr
   return,1
 end
 
-function __trex_pgm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,MAXVAL=maxval
+function __trex_pgm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,TUPLE_TYPE=tuple_type,MAXVAL=maxval
   ; set error cases
-  compile_opt idl2, HIDDEN
   if not keyword_set(verbose) then on_error,2
   on_ioerror,ioerror
 
@@ -863,8 +862,6 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
       ; increment number of overall frames and increase n_bytes
       n_frames = n_frames + file_nframes
       n_bytes = n_bytes + file_total_bytes
-    endif else if (stregex(strupcase(filenames[i]),'.*\H5') eq 0) then begin
-
     endif else begin
       ; file is likely PGM/PGM.GZ, process
       processing_mode = 'pgm'

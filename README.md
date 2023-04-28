@@ -6,7 +6,7 @@
 [![Support Python versions](https://img.shields.io/badge/Supported%20Python-3.8%20%7C%203.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-blue)](https://pypi.python.org/pypi/trex-imager-readfile/)
 ![Supported IDL versions](https://img.shields.io/badge/Supported%20IDL-8.7.2%2B-blue)
 [![Python Version](https://img.shields.io/pypi/v/trex-imager-readfile.svg?label=Python%20Package)](https://pypi.python.org/pypi/trex-imager-readfile)
-![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.1.0-blue)
+![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.1.1-blue)
 [![Github Actions - Tests](https://github.com/ucalgary-aurora/trex-imager-readfile/workflows/tests/badge.svg)](https://github.com/ucalgary-aurora/trex-imager-readfile/actions?query=workflow%3Atests)
 
 This repository contains code for reading Transition Region Explorer (TREx) All-Sky Imager (ASI) raw data. The data can be found at https://data.phys.ucalgary.ca.
