@@ -1,11 +1,11 @@
-import gzip as gzip
+import gzip
 import numpy as np
-import signal as signal
-import cv2 as cv2
-import tarfile as tarfile
-import os as os
-import datetime as datetime
-from multiprocessing import Pool as Pool
+import signal
+import cv2
+import tarfile
+import os
+import datetime
+from multiprocessing import Pool
 
 # static globals
 __RGB_PGM_IMAGE_SIZE_BYTES = 480 * 553 * 2

@@ -1,7 +1,7 @@
-import gzip as gzip
+import gzip
 import numpy as np
-import signal as signal
-from multiprocessing import Pool as Pool
+import signal
+from multiprocessing import Pool 
 from functools import partial
 
 # globals
