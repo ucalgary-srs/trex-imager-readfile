@@ -1,21 +1,18 @@
-# Author: Lukas Vollmerhaus
-# Date: 2020-10-16
-
-import gzip as _gzip
-import numpy as _np
-import signal as _signal
-from multiprocessing import Pool as _Pool
-from functools import partial as _partial
+import gzip as gzip
+import numpy as np
+import signal as signal
+from multiprocessing import Pool as Pool
+from functools import partial
 
 # globals
 __SPECTROGRAPH_IMAGE_SIZE_BYTES = 1024 * 256 * 2
-__SPECTROGRAPH_DT = _np.dtype("uint16")
+__SPECTROGRAPH_DT = np.dtype("uint16")
 __SPECTROGRAPH_DT = __SPECTROGRAPH_DT.newbyteorder('>')  # force big endian byte ordering
 
 
 def __spectrograph_readfile_worker(file, quiet=False):
     # init
-    images = _np.array([])
+    images = np.array([])
     metadata_dict_list = []
     first_frame = True
     metadata_dict = {}
@@ -27,7 +24,7 @@ def __spectrograph_readfile_worker(file, quiet=False):
     # check file extension to see if it's gzipped or not
     try:
         if file.endswith("pgm.gz"):
-            unzipped = _gzip.open(file, mode='rb')
+            unzipped = gzip.open(file, mode='rb')
         elif file.endswith("pgm"):
             unzipped = open(file, mode='rb')
         else:
@@ -51,7 +48,7 @@ def __spectrograph_readfile_worker(file, quiet=False):
                 print("Error reading before image data in file '%s'" % (file))
             problematic = True
             metadata_dict_list = []
-            images = _np.array([])
+            images = np.array([])
             error_message = "error reading before image data: %s" % (str(e))
             return images, metadata_dict_list, problematic, file, error_message
 
@@ -110,10 +107,10 @@ def __spectrograph_readfile_worker(file, quiet=False):
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
-                image_np = _np.frombuffer(image_bytes, dtype=__SPECTROGRAPH_DT)
+                imagenp = np.frombuffer(image_bytes, dtype=__SPECTROGRAPH_DT)
 
                 # change 1d numpy array into 1024x256 matrix with correctly located pixels
-                image_matrix = _np.reshape(image_np, (1024, 256, 1))
+                image_matrix = np.reshape(image_np, (1024, 256, 1))
             except Exception as e:
                 if (quiet is False):
                     print("Failed reading image data frame: %s" % (str(e)))
@@ -127,7 +124,7 @@ def __spectrograph_readfile_worker(file, quiet=False):
                 images = image_matrix
                 first_frame = False
             else:
-                images = _np.dstack([images, image_matrix])  # depth stack images (on 3rd axis)
+                images = np.dstack([images, image_matrix])  # depth stack images (on 3rd axis)
 
     # close gzip file
     unzipped.close()
@@ -152,14 +149,14 @@ def read(file_list, workers=1, quiet=False):
     """
     # pre-allocate array sizes (optimization)
     predicted_num_frames = len(file_list) * 4
-    images = _np.empty([1024, 256, predicted_num_frames], dtype=__SPECTROGRAPH_DT)
+    images = np.empty([1024, 256, predicted_num_frames], dtype=__SPECTROGRAPH_DT)
     metadata_dict_list = [{}] * predicted_num_frames
     problematic_file_list = []
 
     # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
-    original_sigint_handler = _signal.signal(_signal.SIGINT, _signal.SIG_IGN)
-    pool = _Pool(processes=workers)
-    _signal.signal(_signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
+    original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    pool = Pool(processes=workers)
+    signal.signal(signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
 
     # if input is just a single file name in a string, convert to a list to be fed to the workers
     if isinstance(file_list, str):
@@ -169,10 +166,10 @@ def read(file_list, workers=1, quiet=False):
     # NOTE: structure of data - data[file][metadata dictionary lists = 1, images = 0][frame]
     data = []
     try:
-        data = pool.map(_partial(__spectrograph_readfile_worker, quiet=quiet), file_list)
+        data = pool.map(partial(__spectrograph_readfile_worker, quiet=quiet), file_list)
     except KeyboardInterrupt:
         pool.terminate()  # gracefully kill children
-        return _np.empty((0, 0, 0), dtype=__SPECTROGRAPH_DT), [], []
+        return np.empty((0, 0, 0), dtype=__SPECTROGRAPH_DT), [], []
     else:
         pool.close()
 
@@ -201,10 +198,10 @@ def read(file_list, workers=1, quiet=False):
 
     # trim unused elements from predicted array sizes
     metadata_dict_list = metadata_dict_list[0:list_position]
-    images = _np.delete(images, range(list_position, predicted_num_frames), axis=2)
+    images = np.delete(images, range(list_position, predicted_num_frames), axis=2)
 
     # ensure entire array views as uint16
-    images = images.astype(_np.uint16)
+    images = images.astype(np.uint16)
 
     # return
     data = None
