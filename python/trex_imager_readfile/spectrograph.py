@@ -1,6 +1,7 @@
 import gzip
 import numpy as np
 import signal
+import os
 from multiprocessing import Pool
 from functools import partial
 
@@ -20,6 +21,17 @@ def __spectrograph_readfile_worker(file, quiet=False):
     device_uid = ""
     problematic = False
     error_message = ""
+
+    # set site UID and device UID in case we need it (ie. dark frames, or unstacked files)
+    file_split = os.path.basename(file).split('_')
+    if (len(file_split) == 5):
+        # is a regular file
+        site_uid = file_split[2]
+        device_uid = file_split[3]
+    elif (len(file_split) > 5):
+        # is likely a dark frame or a unstacked frame
+        site_uid = file_split[3]
+        device_uid = file_split[4]
 
     # check file extension to see if it's gzipped or not
     try:
@@ -107,7 +119,7 @@ def __spectrograph_readfile_worker(file, quiet=False):
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
-                imagenp = np.frombuffer(image_bytes, dtype=__SPECTROGRAPH_DT)
+                image_np = np.frombuffer(image_bytes, dtype=__SPECTROGRAPH_DT)
 
                 # change 1d numpy array into 1024x256 matrix with correctly located pixels
                 image_matrix = np.reshape(image_np, (1024, 256, 1))
