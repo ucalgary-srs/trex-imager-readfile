@@ -98,7 +98,7 @@ Further, some quick examples are below.
 
 ```python
 >>> import trex_imager_readfile
->>> filename = "path/to/rgb_data/2020/01/01/fsmi_rgb-01/ut06/20200101_0600_fsmi_rgb-01_full.pgm.gz"
+>>> filename = "path/to/rgb_data/2022/02/01/fsmi_rgb-01/ut06/20220201_0600_fsmi_rgb-01_full.h5"
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(filename)
 ```
 
