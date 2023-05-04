@@ -84,7 +84,15 @@ Below are a few quick examples of using the readfile library in Python and IDL.
 
 ### Python
 
-Example Python notebooks can be found in the "examples" directory [here](https://github.com/ucalgary-aurora/trex-imager-readfile/tree/main/python/examples). Further, some quick examples are below.
+Available functions:
+  - trex_imager_readfile.read_blueline()
+  - trex_imager_readfile.read_nir()
+  - trex_imager_readfile.read_rgb()
+  - trex_imager_readfile.read_spectrograph()
+
+Example Python notebooks: https://github.com/ucalgary-aurora/trex-imager-readfile/tree/main/python/examples
+
+Further, some quick examples are below.
 
 #### Read a single file
 
