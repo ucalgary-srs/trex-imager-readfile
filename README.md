@@ -79,6 +79,68 @@ IDL> .reset
 IDL> .run trex_imager_readfile_startup
 ```
 
+## Documentation
+
+The below text provides documentation for the available functions/procedures as part of the IDL and Python libraries.
+
+### Python
+
+Available functions: 
+
+- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`
+- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`
+
+Parameters:
+
+- `file_list`: filename or list of filenames --> type str
+- `quiet`: reduce output while reading data --> type bool, optional
+- `tar_tempdir`: path to untar files to, defaults to '~/.trex_imager_readfile' --> type str, optional
+- `workers`: number of worker processes to spawn, defaults to 1 --> type int, optional
+
+Return values:
+
+- return variables:    `images, metadata dictionaries, and problematic files`
+- return types:        `numpy.ndarray, list[dict], list[dict]`
+
+### IDL
+
+For full documentation, see the main source file [here](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/idl/trex_imager_readfile.pro).
+
+```idl
+; CALLING SEQUENCE:
+;     TREX_IMAGER_READFILE, filename, images, metadata, /KEYWORDS
+;
+; INPUTS:
+;     filename  - a string OR array of strings containing valid TREx image filenames
+;
+; OUTPUTS:
+;     images    - PGM files (TREx NIR, Blueline, Spectrograph)
+;                   --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;               - H5 files (TREx RGB nominal cadence)
+;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;               - PNG files (TREx RGB burst cadence)
+;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
+;     metadata  - a NFRAMES element array of structures
+;
+; KEYWORDS:
+;     FIRST_FRAME       - only read the first frame of a 1-min file (H5, stacked PGM, PNG tarball)
+;     NO_METADATA       - don't read or process metadata (use if file has no metadata or you don't
+;                         want to read it)
+;     MINIMAL_METADATA  - set the least required metadata fields (slightly faster)
+;     ASSUME_EXISTS     - assume that the filename(s) exist (slightly faster)
+;     COUNT             - returns the number of image frames (usage ex. COUNT=nframes)
+;     VERBOSE           - set verbosity to level 1
+;     VERY_VERBOSE      - set verbosity to level 2
+;     SHOW_DATARATE     - show the read datarate stats for each file processed (usually used
+;                         with /VERBOSE keyword)
+;     UNTAR_DIR         - specify the directory to untar RGB colour PNG files to, default
+;                         is IDL_TMPDIR on Windows and '~/.trex_imager_readfile' on
+;                         Linux (usage ex. UNTAR_DIR='path\for\files')
+;     NO_UNTAR_CLEANUP  - don't remove files after untarring to the UNTAR_DIR and reading
+```
+
 ## Examples
 
 Below are a few quick examples of using the readfile library in Python and IDL.
@@ -167,68 +229,6 @@ String          STRUCT    = -> TREX_IMAGER_METADATA
 ```
 IDL> trex_imager_readfile,filename,img,meta,/no_metadata
 ```
-
-## Documentation
-
-The below text provides documentation for the available functions/procedures as part of the IDL and Python libraries.
-
-### IDL
-
-For full documentation, see the main source file [here](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/idl/trex_imager_readfile.pro).
-
-```idl
-; CALLING SEQUENCE:
-;     TREX_IMAGER_READFILE, filename, images, metadata, /KEYWORDS
-;
-; INPUTS:
-;     filename  - a string OR array of strings containing valid TREx image filenames
-;
-; OUTPUTS:
-;     images    - PGM files (TREx NIR, Blueline, Spectrograph)
-;                   --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
-;               - H5 files (TREx RGB nominal cadence)
-;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
-;               - PNG files (TREx RGB burst cadence)
-;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
-;     metadata  - a NFRAMES element array of structures
-;
-; KEYWORDS:
-;     FIRST_FRAME       - only read the first frame of a 1-min file (H5, stacked PGM, PNG tarball)
-;     NO_METADATA       - don't read or process metadata (use if file has no metadata or you don't
-;                         want to read it)
-;     MINIMAL_METADATA  - set the least required metadata fields (slightly faster)
-;     ASSUME_EXISTS     - assume that the filename(s) exist (slightly faster)
-;     COUNT             - returns the number of image frames (usage ex. COUNT=nframes)
-;     VERBOSE           - set verbosity to level 1
-;     VERY_VERBOSE      - set verbosity to level 2
-;     SHOW_DATARATE     - show the read datarate stats for each file processed (usually used
-;                         with /VERBOSE keyword)
-;     UNTAR_DIR         - specify the directory to untar RGB colour PNG files to, default
-;                         is IDL_TMPDIR on Windows and '~/.trex_imager_readfile' on
-;                         Linux (usage ex. UNTAR_DIR='path\for\files')
-;     NO_UNTAR_CLEANUP  - don't remove files after untarring to the UNTAR_DIR and reading
-```
-
-### Python
-
-Available functions: 
-
-- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`
-- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`
-
-Parameters:
-
-- `file_list`: filename or list of filenames --> type str
-- `quiet`: reduce output while reading data --> type bool, optional
-- `tar_tempdir`: path to untar files to, defaults to '~/.trex_imager_readfile' --> type str, optional
-- `workers`: number of worker processes to spawn, defaults to 1 --> type int, optional
-
-Return values:
-
-- return variables:    `images, metadata dictionaries, and problematic files`
-- return types:        `numpy.ndarray, list[dict], list[dict]`
 
 ## Advanced Installation Methods
 
