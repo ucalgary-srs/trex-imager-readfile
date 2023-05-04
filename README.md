@@ -14,8 +14,8 @@ This repository contains code for reading Transition Region Explorer (TREx) All-
 Quick Links:
   - [Installation](#installation)
   - [Updating](#updating)
+  - [Documentation](#documentation)
   - [Examples](#examples)
-  - [Documenatation](#documentation)
   - [Advanced Installation Methods](#advanced-installation-methods)
   - [Development](#development)
 
