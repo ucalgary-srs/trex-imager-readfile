@@ -5,23 +5,29 @@
 ;
 ; NAME:
 ;     TREX_IMAGER_READFILE
+;
 ; VERSION:
-;     1.1.1
+;     1.1.2
+;
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
 ;     Transition Region Explorer (TREx) all-sky camera data.
+;
 ; EXPLANATION:
-;     TREx imager data files are either one-minute stacked binary
-;     PGM files, or one-minute tarred PNG files. Metadata is built
-;     into the header of the file for the PGM files, and is specified
-;     in only the filename in PNG files. This readfile will extract
-;     the metadata and image data from a file, returning the data
+;     TREx imager data files are found at https://data.phys.ucalgary.ca
+;     in the TREx/<instrument>/stream0 directories (or other stream0.x directories
+;     such as RGB's stream0.burst). Supported file formats are PGM, PNG, and H5.
+;     Metadata is built into these files, with a limited set of metadata available in
+;     PNG files such as the RGB stream0.burst data. This readfile will extract
+;     the metadata and images from a file (or set of files), and return the data 
 ;     into two variables specified during calling.
 ;
 ; CALLING SEQUENCE:
 ;     TREX_IMAGER_READFILE, filename, images, metadata, /KEYWORDS
+;
 ; INPUTS:
 ;     filename  - a string OR array of strings containing valid TREx image filenames
+;
 ; OUTPUTS:
 ;     images    - PGM files (TREx NIR, Blueline, Spectrograph)
 ;                   --> a WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
@@ -30,6 +36,7 @@
 ;               - PNG files (TREx RGB burst cadence)
 ;                   --> a CHANNELS x WIDTH x HEIGHT x NFRAMES array of unsigned integers or bytes
 ;     metadata  - a NFRAMES element array of structures
+;
 ; KEYWORDS:
 ;     FIRST_FRAME       - only read the first frame of a 1-min file (H5, stacked PGM, PNG tarball)
 ;     NO_METADATA       - don't read or process metadata (use if file has no metadata or you don't
