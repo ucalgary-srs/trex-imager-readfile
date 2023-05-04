@@ -87,10 +87,10 @@ The below text provides documentation for the available functions/procedures as 
 
 Available functions: 
 
-- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)` [view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_blueline.ipynb)
-- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_nir.ipynb)
-- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_rgb.ipynb)
-- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_spectrograph.ipynb)
+- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`
+- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`
 
 Parameters:
 
@@ -148,12 +148,10 @@ Below are a few quick examples of using the readfile library in Python and IDL.
 ### Python
 
 Available functions:
-  - trex_imager_readfile.read_blueline()
-  - trex_imager_readfile.read_nir()
-  - trex_imager_readfile.read_rgb()
-  - trex_imager_readfile.read_spectrograph()
-
-Example Python notebooks: https://github.com/ucalgary-aurora/trex-imager-readfile/tree/main/python/examples
+  - trex_imager_readfile.read_blueline() -- [Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_blueline.ipynb)
+  - trex_imager_readfile.read_nir() -- [Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_nir.ipynb)
+  - trex_imager_readfile.read_rgb() -- [Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_rgb.ipynb)
+  - trex_imager_readfile.read_spectrograph() -- [Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_spectrograph.ipynb)
 
 Further, some quick examples are below.
 
