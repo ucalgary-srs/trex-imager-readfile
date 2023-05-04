@@ -168,7 +168,7 @@ String          STRUCT    = -> TREX_IMAGER_METADATA
 IDL> trex_imager_readfile,filename,img,meta,/no_metadata
 ```
 
-## Documementation
+## Documentation
 
 The below text provides documentation for the available functions/procedures as part of the IDL and Python libraries.
 
