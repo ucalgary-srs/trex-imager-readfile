@@ -106,7 +106,7 @@ Further, some quick examples are below.
 
 ```python
 >>> import trex_imager_readfile, glob
->>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list)
 ```
 
@@ -114,7 +114,7 @@ Further, some quick examples are below.
 
 ```python
 >>> import trex_imager_readfile, glob
->>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4)
 ```
 
@@ -124,7 +124,7 @@ If a file has issues being read in, it is placed into the `problematic_files` va
 
 ```python
 >>> import trex_imager_readfile, glob
->>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.pgm*")
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4, quiet=True)
 ```
 
