@@ -425,7 +425,7 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     :type file_list: str
     :param workers: number of worker processes to spawn, defaults to 1
     :type workers: int, optional
-    :param tar_tempdir: path to untar to, defaults to '.'
+    :param tar_tempdir: path to untar to, defaults to '~/.trex_imager_readfile'
     :type tar_tempdir: str, optional
     :param quiet: reduce output while reading data
     :type quiet: bool, optional

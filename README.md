@@ -221,13 +221,14 @@ Available functions:
 Parameters:
 
 - `file_list`: filename or list of filenames --> type str
-- `workers`: number of worker processes to spawn, defaults to 1 --> type int, optional
 - `quiet`: reduce output while reading data --> type bool, optional
+- `tar_tempdir`: path to untar files to, defaults to '~/.trex_imager_readfile' --> type str, optional
+- `workers`: number of worker processes to spawn, defaults to 1 --> type int, optional
 
 Return values:
 
-- return variables:    images, metadata dictionaries, and problematic files
-- return types:        numpy.ndarray, list[dict], list[dict]
+- return variables:    `images, metadata dictionaries, and problematic files`
+- return types:        `numpy.ndarray, list[dict], list[dict]`
 
 ## Advanced Installation Methods
 
