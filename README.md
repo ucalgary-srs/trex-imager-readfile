@@ -87,10 +87,10 @@ The below text provides documentation for the available functions/procedures as 
 
 Available functions: 
 
-- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`
-- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)` [view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_blueline.ipynb)
+- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_nir.ipynb)
+- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_rgb.ipynb)
+- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`[view Jupyter notebook example](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/python/examples/read_spectrograph.ipynb)
 
 Parameters:
 
