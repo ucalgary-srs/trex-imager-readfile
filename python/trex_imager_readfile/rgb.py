@@ -16,8 +16,10 @@ __RGB_PGM_DT = __RGB_PGM_DT.newbyteorder('>')  # force big endian byte ordering
 __RGB_PNG_DT = np.dtype("uint8")
 __RGB_H5_DT = np.dtype("uint8")
 __PNG_METADATA_PROJECT_UID = "trex"
-__FLEX_FRAME_COUNT = 2
-__EXPECTED_FRAME_COUNT = 20 + __FLEX_FRAME_COUNT
+__FLEX_NOMINAL_FRAME_COUNT = 2
+__FLEX_BURST_FRAME_COUNT = 50
+__EXPECTED_NOMINAL_FRAME_COUNT = 20 + __FLEX_NOMINAL_FRAME_COUNT
+__EXPECTED_BURST_FRAME_COUNT = 150 + __FLEX_BURST_FRAME_COUNT
 
 
 def __trex_readfile_worker(file_obj):
@@ -206,7 +208,14 @@ def __rgb_readfile_worker_png(file_obj):
             device_uid = file_split[4]
             exposure = "%.03f ms" % (float(file_split[5][:-2]))
             mode_uid = file_split[6][:-4]
-            timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]), "%Y%m%dT%H%M%S")
+
+            # set timestamp
+            if ("burst" in f):
+                timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]),
+                                                       "%Y%m%dT%H%M%S.%f")
+            else:
+                timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]),
+                                                       "%Y%m%dT%H%M%S")
 
             # set the metadata dict
             metadata_dict = {
@@ -462,8 +471,13 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     image_channels = pool_data[0][7]
     image_dtype = pool_data[0][8]
 
+    # set max predicted frame count
+    if ("burst" in f):
+        predicted_num_frames = len(processing_list) * __EXPECTED_BURST_FRAME_COUNT
+    else:
+        predicted_num_frames = len(processing_list) * __EXPECTED_NOMINAL_FRAME_COUNT
+
     # pre-allocate array sizes (optimization)
-    predicted_num_frames = len(processing_list) * __EXPECTED_FRAME_COUNT
     if (image_channels > 1):
         images = np.empty([image_height, image_width, image_channels, predicted_num_frames], dtype=image_dtype)
     else:
