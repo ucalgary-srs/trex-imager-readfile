@@ -104,6 +104,8 @@ Return values:
 - return variables:    `images, metadata dictionaries, and problematic files`
 - return types:        `numpy.ndarray, list[dict], list[dict]`
 
+**Warning**: On Windows, be sure to put any `read_*` calls into a `main()` method. This is because we utilize the multiprocessing library and the method of forking processes in Windows requires it. Note that if you're using Jupyter or other IPython-based interfaces, this is not required.
+
 ### IDL
 
 For full documentation, see the main source file [here](https://github.com/ucalgary-aurora/trex-imager-readfile/blob/main/idl/trex_imager_readfile.pro).
