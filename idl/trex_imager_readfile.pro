@@ -7,7 +7,7 @@
 ;     TREX_IMAGER_READFILE
 ;
 ; VERSION:
-;     1.1.2
+;     1.1.3
 ;
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
@@ -445,7 +445,7 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
     n_bytes = n_bytes + frame_info.size
     dimension_details = [channels,width,height,image_size.type]
 
-    ; re-orient
+    ; re-nt
     frame_img[0,*,*] = reform(reverse(reform(frame_img[0,*,*]), 2), [1, width, height])
     frame_img[1,*,*] = reform(reverse(reform(frame_img[1,*,*]), 2), [1, width, height])
     frame_img[2,*,*] = reform(reverse(reform(frame_img[2,*,*]), 2), [1, width, height])
@@ -556,11 +556,6 @@ function __trex_h5_readfile,filename,image_data,meta_data,dimension_details,n_fr
   h5s_close,dataspace_id
   h5d_close,dataset_id
   h5f_close,file_id
-
-  ; re-orient image
-  image_data[0,*,*,*] = reform(reverse(reform(image_data[0,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
-  image_data[1,*,*,*] = reform(reverse(reform(image_data[1,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
-  image_data[2,*,*,*] = reform(reverse(reform(image_data[2,*,*,*]), 2), [1, dimensions[1], dimensions[2], n_frames])
 
   ; populate metadata object
   meta_data = replicate({trex_imager_h5_metadata},n_frames)
