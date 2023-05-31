@@ -436,11 +436,8 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     # set tar path
     if (tar_tempdir is None):
         tar_tempdir = Path("%s/.trex_imager_readfile" % (str(Path.home())))
-
-    # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
-    original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    pool = Pool(processes=workers)
-    signal.signal(signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
+    if not (os.path.exists(tar_tempdir)):
+        os.makedirs(tar_tempdir)
 
     # if input is just a single file name in a string, convert to a list to be fed to the workers
     if isinstance(file_list, str):
@@ -455,15 +452,33 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
             "quiet": quiet,
         })
 
-    # call readfile function, run each iteration with a single input file from file_list
-    pool_data = []
-    try:
-        pool_data = pool.map(__trex_readfile_worker, processing_list)
-    except KeyboardInterrupt:
-        pool.terminate()  # gracefully kill children
-        return np.empty((0, 0, 0)), [], []
+    # check workers
+    if (workers > 1):
+        try:
+            # set up process pool (ignore SIGINT before spawning pool so child processes inherit SIGINT handler)
+            original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+            pool = Pool(processes=workers)
+            signal.signal(signal.SIGINT, original_sigint_handler)  # restore SIGINT handler
+        except ValueError:
+            # likely the read call is being used within a context that doesn't support the usage
+            # of signals in this way, proceed without it
+            pool = Pool(processes=workers)
+
+        # call readfile function, run each iteration with a single input file from file_list
+        # NOTE: structure of data - data[file][metadata dictionary lists = 1, images = 0][frame]
+        pool_data = []
+        try:
+            pool_data = pool.map(__trex_readfile_worker, processing_list)
+        except KeyboardInterrupt:
+            pool.terminate()  # gracefully kill children
+            return np.empty((0, 0, 0)), [], []
+        else:
+            pool.close()
     else:
-        pool.close()
+        # don't bother using multiprocessing with one worker, just call the worker function directly
+        pool_data = []
+        for p in processing_list:
+            pool_data.append(__trex_readfile_worker(p))
 
     # set sizes
     image_width = pool_data[0][5]
