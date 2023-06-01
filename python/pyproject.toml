@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trex-imager-readfile"
-version = "1.4.0"
+version = "1.4.1"
 description = "Read functions for TREx ASI raw image files"
 readme = "README.md"
 homepage = "https://github.com/ucalgary-aurora/trex-imager-readfile"
