@@ -122,25 +122,22 @@ def __rgb_readfile_worker_h5(file_obj):
 
     # read data
     images = dataset[()]
+    images = np.moveaxis(images, [0, 1, 2, 3], [3, 0, 1, 2])
 
     # close H5 file
     f.close()
 
     # set image vars and reshape if multiple images
+    image_height = images.shape[0]
+    image_width = images.shape[1]
+    image_channels = images.shape[2]
     if (len(images.shape) == 3):
         # single frame
         nframes = 1
-        image_height = images.shape[0]
-        image_width = images.shape[1]
-        image_channels = images.shape[2]
         images = images.reshape((image_height, image_width, image_channels, 1))
     else:
         # multiple frames
         nframes = images.shape[0]
-        image_height = images.shape[1]
-        image_width = images.shape[2]
-        image_channels = images.shape[3]
-        images = images.reshape((image_height, image_width, image_channels, nframes))
 
     # verify that metadata list size matches number of images
     if (len(metadata_dict_list) != nframes):
@@ -237,7 +234,8 @@ def __rgb_readfile_worker_png(file_obj):
         # read png file
         try:
             # read file
-            image_np = cv2.imread(f)
+            image_np = cv2.imread(f, cv2.IMREAD_COLOR)
+            image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
             image_height = image_np.shape[0]
             image_width = image_np.shape[1]
             image_channels = image_np.shape[2] if len(image_np.shape) > 2 else 1
