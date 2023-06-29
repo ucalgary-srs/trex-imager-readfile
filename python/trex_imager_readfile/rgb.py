@@ -137,7 +137,7 @@ def __rgb_readfile_worker_h5(file_obj):
         images = images.reshape((image_height, image_width, image_channels, 1))
     else:
         # multiple frames
-        nframes = images.shape[0]
+        nframes = images.shape[3]
 
     # verify that metadata list size matches number of images
     if (len(metadata_dict_list) != nframes):
