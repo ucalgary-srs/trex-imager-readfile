@@ -7,7 +7,7 @@
 ;     TREX_IMAGER_READFILE
 ;
 ; VERSION:
-;     1.1.3
+;     1.2.0
 ;
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
@@ -19,7 +19,7 @@
 ;     such as RGB's stream0.burst). Supported file formats are PGM, PNG, and H5.
 ;     Metadata is built into these files, with a limited set of metadata available in
 ;     PNG files such as the RGB stream0.burst data. This readfile will extract
-;     the metadata and images from a file (or set of files), and return the data 
+;     the metadata and images from a file (or set of files), and return the data
 ;     into two variables specified during calling.
 ;
 ; CALLING SEQUENCE:
@@ -89,10 +89,6 @@
 ;     This code was based on Brian Jackel's "themis_imager_readfile" routine
 ;     written in 2006. The PGM format is described on the NetPBM home page
 ;     at http://netpbm.sourceforge.net/doc/pgm.html.
-;
-; MODIFICATION HISTORY:
-;     2020-01-19: Darren Chaddock - creation based on themis_imager_readfile
-;     2023-04-17: Darren Chaddock - updated TREx RGB reading to work on HDF5 dataset
 ;
 ;------------------------
 ; MIT License
@@ -172,7 +168,7 @@ pro trex_imager_h5_metadata__define
     ccd_offset: [0,0],$
     ccd_binning: [0,0],$
     frame_size: [0,0],$
-    comments: ''$
+    comments: hash()$
   }
 end
 
@@ -265,79 +261,11 @@ function __trex_parse_pgm_comments,comments,metadata,MINIMAL_METADATA=minimal_me
   return,1
 end
 
-function __trex_parse_h5_frame_metadata_line,metadata_line,key,value
-  colon_idx = strpos(metadata_line, ':')
-  key = strmid(metadata_line, 0, colon_idx)
-  value = strmid(metadata_line, colon_idx+2, strlen(metadata_line)-colon_idx)
-  return,0
-end
-
-function __trex_generate_h5_comments_str,all_attributes,this_frame_key,this_frame_meta
-  ; init
-  comments_str = ''
-  comments_list = list()
-
-  ; add each global metadata line
-  keys = all_attributes.keys()
-  for i=0,n_elements(all_attributes)-1 do begin
-    ; skip frame metadata keys
-    if (strpos(keys[i], 'Frame ') ge 0) then continue
-
-    ; add to comments string
-    line = '"' + keys[i] + '" ' + all_attributes[keys[i]]
-    comments_list.Add,line
-  endfor
-
-  ; add in frame metadata lines
-  for i=0,n_elements(this_frame_meta)-1 do begin
-    ret = __trex_parse_h5_frame_metadata_line(this_frame_meta[i],key,value)
-    line = '"' + key + '" ' + value
-    comments_list.Add,line
-  endfor
-
-  ; sort the list
-  comments_list = comments_list.sort()
-
-  ; append all to comments string
-  for i=0,n_elements(comments_list)-1 do begin
-    comments_str += comments_list[i]
-    if (i lt n_elements(comments_list)-1) then begin
-      comments_str += string(10B)
-    endif
-  endfor
-
-  ; return
-  return,comments_str
-end
-
 function __trex_parse_h5_metadata,attributes,metadata,img_dims,MINIMAL_METADATA=minimal_metadata
   ; for each expected frame
-  meta_idx = 0
-  for second=0,57,3 do begin
-    ; init for this second
-    this_attr_list = !NULL
-
-    ; search for corresponding frame attribute
-    this_attr_key = 'Frame ' + string(second,format='(I2.2)') + ' Meta'
-    if (attributes.hasKey(this_attr_key) eq 1) then begin
-      this_attr_list = attributes[this_attr_key]
-    endif
-
-    ; skip further work if key for this frame is not found
-    if (this_attr_list eq !NULL) then continue
-
-    ; set metadata fields
-    effective_exposure_length = 0.0
-    for i=0,n_elements(this_attr_list)-1 do begin
-      if (strpos(strlowcase(this_attr_list[i]), 'image request start') eq 0) then begin
-        ret = __trex_parse_h5_frame_metadata_line(this_attr_list[i],key,value)
-        metadata[meta_idx].exposure_start_string = strlowcase(value)
-      endif
-      if (strpos(strlowcase(this_attr_list[i]), 'effective image exposure') eq 0) then begin
-        ret = __trex_parse_h5_frame_metadata_line(this_attr_list[i],key,value)
-        effective_exposure_length = float(strmid(value, 6, strlen(value)-6-3)) * 1000.0
-      endif
-    endfor
+  for i=0,n_elements(attributes['timestamp'])-1 do begin
+    ; set exposure start string
+    metadata[i].exposure_start_string = strlowcase(attributes['timestamp', i])
 
     ; set exposure cdf metadata field
     year = 0
@@ -347,35 +275,32 @@ function __trex_parse_h5_metadata,attributes,metadata,img_dims,MINIMAL_METADATA=
     minute = 0
     second = 0.0
     milli = 0.0
-    reads,metadata[meta_idx].exposure_start_string,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.7)'
+    reads,metadata[i].exposure_start_string,year,month,day,hour,minute,second,format='(I4,X,I2,X,I2,X,I2,X,I2,X,F9.9)'
     milli = round(1000*(second-fix(second)))
     second = fix(second)
     cdf_epoch,epoch,year,month,day,hour,minute,second,milli,/COMPUTE
-    metadata[meta_idx].exposure_start_cdf = epoch
+    metadata[i].exposure_start_cdf = epoch
 
     ; set remaining 'global' metadata fields
     if not keyword_set(MINIMAL_METADATA) then begin
-      metadata[meta_idx].site_uid = attributes['Site unique ID']
-      metadata[meta_idx].imager_uid = attributes['Imager unique ID']
-      metadata[meta_idx].site_latitude = attributes['Geographic latitude']
-      metadata[meta_idx].site_longitude = attributes['Geographic longitude']
+      metadata[i].site_uid = attributes['site_unique_id']
+      metadata[i].imager_uid = attributes['imager_unique_id']
+      metadata[i].site_latitude = attributes['geographic_latitude']
+      metadata[i].site_longitude = attributes['geographic_longitude']
       if (n_elements(img_dims) eq 4) then begin
-        metadata[meta_idx].ccd_size = [img_dims[1],img_dims[2]]
-        metadata[meta_idx].ccd_center = [floor(img_dims[1]/2),floor(img_dims[2]/2)]
-        metadata[meta_idx].ccd_offset = [0,0]
-        metadata[meta_idx].ccd_binning = [0,0]
-        metadata[meta_idx].frame_size = [img_dims[1],img_dims[2]]
+        metadata[i].ccd_size = [img_dims[1],img_dims[2]]
+        metadata[i].ccd_center = [floor(img_dims[1]/2),floor(img_dims[2]/2)]
+        metadata[i].ccd_offset = [0,0]
+        metadata[i].ccd_binning = [0,0]
+        metadata[i].frame_size = [img_dims[1],img_dims[2]]
       endif
-      metadata[meta_idx].exposure_duration_request = effective_exposure_length
-      metadata[meta_idx].exposure_duration_actual = effective_exposure_length
+      value = attributes['frame','frame'+strtrim(i,2),'image_effective_exposure_length']
+      metadata[i].exposure_duration_actual = float(strmid(value, 6, strlen(value)-6-3)) * 1000.0
+      metadata[i].exposure_duration_request = float(strmid(attributes['exposure_length'], 0, 1)) * 1000.0
 
-      ; combine global and frame metadata together into the comments string
-      comments_str = __trex_generate_h5_comments_str(attributes,this_attr_key,this_attr_list)
-      metadata[meta_idx].comments = comments_str
+      ; combine global and frame metadata together into the comments hash
+      metadata[i].comments = attributes
     endif
-
-    ; increment metadata index
-    meta_idx += 1
   endfor
 
   ; return success
@@ -445,7 +370,7 @@ function __trex_png_readfile,filename,image_data,meta_data,dimension_details,n_f
     n_bytes = n_bytes + frame_info.size
     dimension_details = [channels,width,height,image_size.type]
 
-    ; re-nt
+    ; re-orient
     frame_img[0,*,*] = reform(reverse(reform(frame_img[0,*,*]), 2), [1, width, height])
     frame_img[1,*,*] = reform(reverse(reform(frame_img[1,*,*]), 2), [1, width, height])
     frame_img[2,*,*] = reform(reverse(reform(frame_img[2,*,*]), 2), [1, width, height])
@@ -524,37 +449,79 @@ function __trex_h5_readfile,filename,image_data,meta_data,dimension_details,n_fr
 
   ; open file
   file_id = h5f_open(filename)
-  dataset_id = h5d_open(file_id, '/data')
+  dataset_images_id = h5d_open(file_id, '/data/images')
 
   ; read image data
-  image_data = h5d_read(dataset_id)
-  dataspace_id = h5d_get_space(dataset_id)
-  dimensions = h5s_get_simple_extent_dims(dataspace_id)
+  image_data = h5d_read(dataset_images_id)
+  image_data = transpose(image_data, [1, 2, 3, 0])  ; reorder because IDL reads H5 data in backwards
+  dataspace_images_id = h5d_get_space(dataset_images_id)
+  dimensions = h5s_get_simple_extent_dims(dataspace_images_id)
   finfo = file_info(filename)
 
   ; set image variables
-  dimension_details[0] = dimensions[0]
-  dimension_details[1] = dimensions[1]
-  dimension_details[2] = dimensions[2]
-  n_frames = dimensions[3]
+  dimension_details[0] = dimensions[1]
+  dimension_details[1] = dimensions[2]
+  dimension_details[2] = dimensions[3]
+  dimension_details[3] = dimensions[0]
+  n_frames = dimensions[0]
   n_bytes = finfo.size
+
+  ; close image dataset handlers
+  h5s_close,dataspace_images_id
+  h5d_close,dataset_images_id
 
   ; read metadata attributes
   if not keyword_set(NO_METADATA) then begin
+    ; init
     attributes = hash()
-    num_attributes = h5a_get_num_attrs(dataset_id)
+
+    ; read timestamp data
+    dataset_timestamp_id = h5d_open(file_id, '/data/timestamp')
+    timestamp_data = h5d_read(dataset_timestamp_id)
+    h5d_close,dataset_timestamp_id
+    attributes['timestamp'] = timestamp_data
+
+    ; read in file metadata
+    dataset_file_metadata_id = h5d_open(file_id, '/metadata/file')
+    num_attributes = h5a_get_num_attrs(dataset_file_metadata_id)
     for i=0,num_attributes-1 do begin
-      attribute_id = h5a_open_idx(dataset_id,i)
+      attribute_id = h5a_open_idx(dataset_file_metadata_id, i)
       attribute_name = h5a_get_name(attribute_id)
       attribute_data = h5a_read(attribute_id)
       attributes[attribute_name] = attribute_data
       h5a_close,attribute_id
     endfor
+    h5d_close,dataset_file_metadata_id
+
+    ; read in frame metadata
+    all_frame_attributes = hash()
+    for frame_num=0,n_elements(timestamp_data)-1 do begin
+      ; open frame metadata dataset
+      dataset_frame_metadata_id = h5d_open(file_id, '/metadata/frame/frame' + strtrim(frame_num, 2))
+      num_attributes = h5a_get_num_attrs(dataset_frame_metadata_id)
+
+      ; add attributes
+      this_frame_metadata = hash()
+      for i=0,num_attributes-1 do begin
+        attribute_id = h5a_open_idx(dataset_frame_metadata_id, i)
+        attribute_name = h5a_get_name(attribute_id)
+        attribute_data = h5a_read(attribute_id)
+        this_frame_metadata[attribute_name] = attribute_data
+        h5a_close,attribute_id
+      endfor
+
+      ; add this frame metadata
+      all_frame_attributes['frame' + strtrim(frame_num, 2)] = this_frame_metadata
+
+      ; close handlers
+      h5d_close,dataset_frame_metadata_id
+    endfor
+
+    ; add frame metadata to larger metadata object
+    attributes['frame'] = all_frame_attributes
   endif
 
-  ; close handlers
-  h5s_close,dataspace_id
-  h5d_close,dataset_id
+  ; close file handler
   h5f_close,file_id
 
   ; populate metadata object
@@ -574,7 +541,7 @@ function __trex_h5_readfile,filename,image_data,meta_data,dimension_details,n_fr
 
   ; on error, remove extra unused memory, cleanup files, and return
   ioerror:
-  print,'Error - could not process PNG file'
+  print,'Error - could not process H5 file'
   if (n_frames gt 0) then begin
     image_data = image_data[*,*,*,0:n_frames-1]
     meta_data = meta_data[0:n_frames-1]
@@ -699,7 +666,7 @@ function __trex_pgm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,
   return,-1L
 end
 
-pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose,VERY_VERBOSE=very_verbose,SHOW_DATARATE=show_datarate,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,ASSUME_EXISTS=assume_exists,FIRST_FRAME=first_frame,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup
+pro trex_imager_readfile_new_format,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose,VERY_VERBOSE=very_verbose,SHOW_DATARATE=show_datarate,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,ASSUME_EXISTS=assume_exists,FIRST_FRAME=first_frame,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup
   ; init
   COMPILE_OPT IDL2
   stride = 0
@@ -780,7 +747,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
     endfor
     n_files = n_elements(filenames)-1
     if (n_files eq 0) then begin
-      message,'Error - files not found:' + filename[0],/INFORMATIONAL
+      message,'Error - files not found:' + filenames,/INFORMATIONAL
       n_frames = 0
       return
     endif
@@ -832,8 +799,8 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
         ; pre-allocate images if it's the first call and we'll be reading more than one file
         if (n_files gt 1) then begin
           ; more than one file will be read, pre-allocate array for all images anticipated to be read in
-          total_expected_frames = n_files * file_nframes  ; assume they are all tarballs, array will be trimmed at end
-          images = make_array([file_dimension_details[0],file_dimension_details[1],file_dimension_details[2],total_expected_frames],TYPE=file_dimension_details[3],/NOZERO)
+          total_expected_frames = n_files * 20  ; array will be trimmed at end
+          images = make_array([file_dimension_details[0],file_dimension_details[1],file_dimension_details[2],total_expected_frames],/UINT,/NOZERO)
 
           ; insert images
           images[0,0,0,0] = file_images[*,*,*,*]
@@ -851,7 +818,7 @@ pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose
         if ((n_frames+file_nframes) ge total_expected_frames) then begin
           ; need to expand the array
           total_expected_frames = total_expected_frames * 2
-          images_new = make_array([file_dimension_details[0],file_dimension_details[1],file_dimension_details[2],total_expected_frames],TYPE=file_dimension_details[3],/NOZERO)
+          images_new = make_array([file_dimension_details[0],file_dimension_details[1],file_dimension_details[2],total_expected_frames],/UINT,/NOZERO)
           images_new[0,0,0,0] = images[*,*,*,*]
           images = images_new
         endif
