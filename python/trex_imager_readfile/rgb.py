@@ -88,41 +88,21 @@ def __rgb_readfile_worker_h5(file_obj):
     # open H5 file
     f = h5py.File(file_obj["filename"], 'r')
 
-    # get dataset
-    dataset = f["data"]
+    # get images and timestamps
+    images = f["data"]["images"][:]
+    timestamps = f["data"]["timestamp"][:]
 
-    # read file metadata
+    # get file metadata
     file_metadata = {}
-    frame_keys = []
-    for key in dataset.attrs.keys():
-        value = dataset.attrs[key]
-        if (isinstance(value, np.ndarray) is False):
-            file_metadata[key] = value.strip()
-        else:
-            frame_keys.append(key)
+    for key, value in f["metadata"]["file"].attrs.items():
+        file_metadata[key] = value
 
-    # check that there's frame metadata
-    if (len(frame_keys) == 0):
-        problematic = True
-        error_message = "No frame metadata exists"
-        return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
-            image_width, image_height, image_channels, image_dtype
-
-    # set first frame
-    frame_keys = sorted(frame_keys)
-    frame_metadata = __parse_frame_metadata(dataset.attrs[frame_keys[0]])
-    file_metadata.update(frame_metadata)
-    metadata_dict_list.append(file_metadata)
-
-    # set remaining frame metadata
-    if (len(frame_keys) >= 2):
-        for key in frame_keys[1:]:
-            frame_metadata = __parse_frame_metadata(dataset.attrs[key])
-            metadata_dict_list.append(frame_metadata)
-
-    # read data
-    images = dataset[()]
-    images = np.moveaxis(images, [0, 1, 2, 3], [3, 0, 1, 2])
+    # read frame metadata
+    for i in range(0, len(timestamps)):
+        this_frame_metadata = file_metadata
+        for key, value in f["metadata"]["frame"]["frame%d" % (i)].attrs.items():
+            this_frame_metadata[key] = value
+        metadata_dict_list.append(this_frame_metadata)
 
     # close H5 file
     f.close()
