@@ -666,7 +666,7 @@ function __trex_pgm_readfile,filename,LUN=lun,VERBOSE=verbose,COMMENTS=comments,
   return,-1L
 end
 
-pro trex_imager_readfile_new_format,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose,VERY_VERBOSE=very_verbose,SHOW_DATARATE=show_datarate,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,ASSUME_EXISTS=assume_exists,FIRST_FRAME=first_frame,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup
+pro trex_imager_readfile,filename,images,metadata,COUNT=n_frames,VERBOSE=verbose,VERY_VERBOSE=very_verbose,SHOW_DATARATE=show_datarate,NO_METADATA=no_metadata,MINIMAL_METADATA=minimal_metadata,ASSUME_EXISTS=assume_exists,FIRST_FRAME=first_frame,UNTAR_DIR=untar_dir,NO_UNTAR_CLEANUP=no_untar_cleanup
   ; init
   COMPILE_OPT IDL2
   stride = 0
