@@ -283,6 +283,10 @@ function __trex_parse_h5_metadata,attributes,metadata,img_dims,MINIMAL_METADATA=
 
     ; set remaining 'global' metadata fields
     if not keyword_set(MINIMAL_METADATA) then begin
+      ; init
+      this_attributes = hash()
+
+      ; set values
       metadata[i].site_uid = attributes['site_unique_id']
       metadata[i].imager_uid = attributes['imager_unique_id']
       metadata[i].site_latitude = attributes['geographic_latitude']
@@ -299,7 +303,14 @@ function __trex_parse_h5_metadata,attributes,metadata,img_dims,MINIMAL_METADATA=
       metadata[i].exposure_duration_request = float(strmid(attributes['exposure_length'], 0, 1)) * 1000.0
 
       ; combine global and frame metadata together into the comments hash
-      metadata[i].comments = attributes
+      foreach value,attributes,key do begin
+        if (key eq 'frame' or key eq 'timestamp') then continue
+        this_attributes[key] = value
+      endforeach
+      foreach value,attributes['frame', 'frame'+strtrim(i,2)],key do begin
+        this_attributes[key] = value
+      endforeach
+      metadata[i].comments = this_attributes
     endif
   endfor
 
