@@ -99,7 +99,7 @@ def __rgb_readfile_worker_h5(file_obj):
 
     # read frame metadata
     for i in range(0, len(timestamps)):
-        this_frame_metadata = file_metadata
+        this_frame_metadata = file_metadata.copy()
         for key, value in f["metadata"]["frame"]["frame%d" % (i)].attrs.items():
             this_frame_metadata[key] = value
         metadata_dict_list.append(this_frame_metadata)
