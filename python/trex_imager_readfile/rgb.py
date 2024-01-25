@@ -56,23 +56,6 @@ def __trex_readfile_worker(file_obj):
         image_width, image_height, image_channels, image_dtype
 
 
-def __parse_frame_metadata(frame_list):
-    # init
-    metadata = {}
-
-    # process frame metadata
-    for frame_item in frame_list:
-        separator_idx = frame_item.find(':')
-        key = frame_item[0:separator_idx]
-        value = frame_item[(separator_idx + 1):]
-        key = key.strip()
-        value = value.strip()
-        metadata[key] = value
-
-    # return
-    return metadata
-
-
 def __rgb_readfile_worker_h5(file_obj):
     # init
     images = np.array([])
@@ -187,7 +170,7 @@ def __rgb_readfile_worker_png(file_obj):
             mode_uid = file_split[6][:-4]
 
             # set timestamp
-            if ("burst" in f):
+            if ("burst" in f or "mode-b"):
                 timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]),
                                                        "%Y%m%dT%H%M%S.%f")
             else:
@@ -466,7 +449,7 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     image_dtype = pool_data[0][8]
 
     # set max predicted frame count
-    if ("burst" in f):
+    if ("burst" in f or "mode-b" in f):
         predicted_num_frames = len(processing_list) * __EXPECTED_BURST_FRAME_COUNT
     else:
         predicted_num_frames = len(processing_list) * __EXPECTED_NOMINAL_FRAME_COUNT
