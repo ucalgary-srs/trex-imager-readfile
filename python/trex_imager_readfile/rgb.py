@@ -171,11 +171,9 @@ def __rgb_readfile_worker_png(file_obj):
 
             # set timestamp
             if ("burst" in f or "mode-b"):
-                timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]),
-                                                       "%Y%m%dT%H%M%S.%f")
+                timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]), "%Y%m%dT%H%M%S.%f")
             else:
-                timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]),
-                                                       "%Y%m%dT%H%M%S")
+                timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]), "%Y%m%dT%H%M%S")
 
             # set the metadata dict
             metadata_dict = {

@@ -1,6 +1,12 @@
-.PHONY: update test test-flake8 test-pytest clean publish
+.PHONY: install update test test-linting test-ruff test-pycodestyle test-pytest clean publish
 
 all:
+
+poetry:
+	python -m pip install poetry
+
+install: poetry
+	poetry install
 
 update upgrade:
 	python -m pip install --upgrade poetry
@@ -9,14 +15,26 @@ update upgrade:
 clean:
 	@rm -rf trex_imager_readfile.egg-info build dist
 
-test: test-flake8 test-pytest
+test: test-linting
 
-test-flake8 flake8:
-	poetry run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-	poetry run flake8 . --count --ignore=W391 --max-complexity=30 --max-line-length=127 --statistics
+test-linting: test-ruff test-pycodestyle
+
+test-ruff ruff:
+	@printf "Running ruff tests\n+++++++++++++++++++++++++++\n"
+	ruff check --respect-gitignore trex_imager_readfile
+	ruff check --respect-gitignore tests
+	ruff check --respect-gitignore tools
+	@printf "\n\n"
+
+test-pycodestyle:
+	@printf "Running pycodestyle tests\n+++++++++++++++++++++++++++\n"
+	pycodestyle --config=.pycodestyle trex_imager_readfile
+	pycodestyle --config=.pycodestyle tests
+	pycodestyle --config=.pycodestyle tools
+	@printf "\n\n"
 	
 test-pytest pytest:
-	poetry run pytest
+	pytest -n 2 --maxfail=1
 
 publish:
 	${MAKE} test

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trex-imager-readfile"
-version = "1.5.2"
+version = "1.6.0"
 description = "Read functions for TREx ASI raw image files"
 readme = "README.md"
 homepage = "https://github.com/ucalgary-aurora/trex-imager-readfile"
@@ -18,10 +18,33 @@ opencv-python = "^4.4.0"
 h5py = "^3.1.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.0.0"
-flake8 = "^6.0.0"
-pylint = "^2.16.0"
+pytest = "^8.0.0"
+pycodestyle = "^2.11.1"
+ruff = "^0.2.0"
+yapf = "^0.40.2"
+pytest-xdist = "^3.5.0"
+pytest-sugar = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 150
+lint.select = ["E", "F", "B"]
+lint.ignore = [
+    "F403",  # `from .schemas import *` used; unable to detect undefined names
+    "F405",  # `Union` may be undefined, or defined from star imports
+    "B006",  # Do not use mutable data structures for argument defaults
+]
+exclude = ["trex_imager_readfile/__init__.py"]
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 150
+allow_split_before_dict_value = false
+
+[tool.yapfignore]
+ignore_patterns = [
+  "temp/**/*.py",
+]
