@@ -11,11 +11,11 @@ __SPECTROGRAPH_DT = np.dtype("uint16")
 __SPECTROGRAPH_DT = __SPECTROGRAPH_DT.newbyteorder('>')  # force big endian byte ordering
 
 
-def __spectrograph_readfile_worker(file, quiet=False):
+def __spectrograph_readfile_worker(file, first_frame=False, no_metadata=False, quiet=False):
     # init
     images = np.array([])
     metadata_dict_list = []
-    first_frame = True
+    is_first = True
     metadata_dict = {}
     site_uid = ""
     device_uid = ""
@@ -42,6 +42,8 @@ def __spectrograph_readfile_worker(file, quiet=False):
         else:
             if (quiet is False):
                 print("Unrecognized file type: %s" % (file))
+            problematic = True
+            error_message = "Unrecognized file type"
             return images, metadata_dict_list, problematic, file, error_message
     except Exception as e:
         if (quiet is False):
@@ -52,6 +54,10 @@ def __spectrograph_readfile_worker(file, quiet=False):
 
     # read the file
     while True:
+        # break out depending on first_frame param
+        if (first_frame is True and is_first is False):
+            break
+
         # read a line
         try:
             line = unzipped.readline()
@@ -74,40 +80,44 @@ def __spectrograph_readfile_worker(file, quiet=False):
 
         # process line
         if (line.startswith(b'#"')):
-            # metadata lines start with #"<key>"
-            try:
-                line_decoded = line.decode("ascii")
-            except Exception as e:
-                # skip metadata line if it can't be decoded, likely corrupt file
-                if (quiet is False):
-                    print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file))
-                problematic = True
-                error_message = "error decoding metadata line: %s" % (str(e))
-                continue
-
-            # split the key and value out of the metadata line
-            line_decoded_split = line_decoded.split('"')
-            key = line_decoded_split[1]
-            value = line_decoded_split[2].strip()
-
-            # add entry to dictionary
-            metadata_dict[key] = value
-
-            # set the site/device uids, or inject the site and device UIDs if they are missing
-            if ("Site unique ID" not in metadata_dict):
-                metadata_dict["Site unique ID"] = site_uid
-            else:
-                site_uid = metadata_dict["Site unique ID"]
-            if ("Imager unique ID" not in metadata_dict):
-                metadata_dict["Imager unique ID"] = device_uid
-            else:
-                device_uid = metadata_dict["Imager unique ID"]
-
-            # split dictionaries up per frame, exposure plus initial readout is
-            # always the end of metadata for frame
-            if (key.startswith("Exposure plus readout")):
-                metadata_dict_list.append(metadata_dict)
+            if (no_metadata is True):
                 metadata_dict = {}
+                metadata_dict_list.append(metadata_dict)
+            else:
+                # metadata lines start with #"<key>"
+                try:
+                    line_decoded = line.decode("ascii")
+                except Exception as e:
+                    # skip metadata line if it can't be decoded, likely corrupt file
+                    if (quiet is False):
+                        print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file))
+                    problematic = True
+                    error_message = "error decoding metadata line: %s" % (str(e))
+                    continue
+
+                # split the key and value out of the metadata line
+                line_decoded_split = line_decoded.split('"')
+                key = line_decoded_split[1]
+                value = line_decoded_split[2].strip()
+
+                # add entry to dictionary
+                metadata_dict[key] = value
+
+                # set the site/device uids, or inject the site and device UIDs if they are missing
+                if ("Site unique ID" not in metadata_dict):
+                    metadata_dict["Site unique ID"] = site_uid
+                else:
+                    site_uid = metadata_dict["Site unique ID"]
+                if ("Imager unique ID" not in metadata_dict):
+                    metadata_dict["Imager unique ID"] = device_uid
+                else:
+                    device_uid = metadata_dict["Imager unique ID"]
+
+                # split dictionaries up per frame, exposure plus initial readout is
+                # always the end of metadata for frame
+                if (key.startswith("Exposure plus readout")):
+                    metadata_dict_list.append(metadata_dict)
+                    metadata_dict = {}
         elif line == b'65535\n':
             # there are 2 lines between "exposure plus read out" and the image
             # data, the first is b'1024 256\n' and the second is b'65535\n'
@@ -132,9 +142,9 @@ def __spectrograph_readfile_worker(file, quiet=False):
                 continue  # skip to next frame
 
             # initialize image stack
-            if first_frame:
+            if (is_first is True):
                 images = image_matrix
-                first_frame = False
+                is_first = False
             else:
                 images = np.dstack([images, image_matrix])  # depth stack images (on 3rd axis)
 
@@ -145,7 +155,7 @@ def __spectrograph_readfile_worker(file, quiet=False):
     return images, metadata_dict_list, problematic, file, error_message
 
 
-def read(file_list, workers=1, quiet=False):
+def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False):
     """
     Read in a single PGM file or set of PGM files
 
@@ -153,6 +163,11 @@ def read(file_list, workers=1, quiet=False):
     :type file_list: str
     :param workers: number of worker processes to spawn, defaults to 1
     :type workers: int, optional
+    :param first_frame: only read the first frame for each file, defaults to False
+    :type first_frame: bool, optional
+    :param no_metadata: exclude reading of metadata (performance optimization if
+                        the metadata is not needed), defaults to False
+    :type no_metadata: bool, optional
     :param quiet: reduce output while reading data
     :type quiet: bool, optional
 
@@ -185,7 +200,12 @@ def read(file_list, workers=1, quiet=False):
         # NOTE: structure of data - data[file][metadata dictionary lists = 1, images = 0][frame]
         data = []
         try:
-            data = pool.map(partial(__spectrograph_readfile_worker, quiet=quiet), file_list)
+            data = pool.map(partial(
+                __spectrograph_readfile_worker,
+                first_frame=first_frame,
+                no_metadata=no_metadata,
+                quiet=quiet,
+            ), file_list)
         except KeyboardInterrupt:
             pool.terminate()  # gracefully kill children
             return np.empty((0, 0, 0), dtype=__SPECTROGRAPH_DT), [], []
@@ -196,7 +216,12 @@ def read(file_list, workers=1, quiet=False):
         # don't bother using multiprocessing with one worker, just call the worker function directly
         data = []
         for f in file_list:
-            data.append(__spectrograph_readfile_worker(f, quiet=quiet))
+            data.append(__spectrograph_readfile_worker(
+                f,
+                first_frame=first_frame,
+                no_metadata=no_metadata,
+                quiet=quiet,
+            ))
 
     # reorganize data
     list_position = 0
