@@ -34,7 +34,7 @@ test-pycodestyle:
 	@printf "\n\n"
 	
 test-pytest pytest:
-	pytest -n 2 --maxfail=1
+	pytest -n 3 --maxfail=1
 
 publish:
 	${MAKE} test

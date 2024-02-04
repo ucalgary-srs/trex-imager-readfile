@@ -1,11 +1,14 @@
-import gzip
-import numpy as np
-import signal
-import cv2
-import tarfile
 import os
 import datetime
+import gzip
+import shutil
+import signal
+import tarfile
+import random
+import string
+import cv2
 import h5py
+import numpy as np
 from pathlib import Path
 from multiprocessing import Pool
 
@@ -44,11 +47,10 @@ def __trex_readfile_worker(file_obj):
         else:
             if (file_obj["quiet"] is False):
                 print("Unrecognized file type: %s" % (file_obj["filename"]))
-            raise Exception("Unrecognized file type: %s" % ((file_obj["filename"])))
+            problematic = True
+            error_message = "Unrecognized file type"
     except Exception as e:
         if (file_obj["quiet"] is False):
-            import traceback
-            traceback.print_exc()
             print("Failed to process file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to process file: %s" % (str(e))
@@ -66,26 +68,35 @@ def __rgb_readfile_worker_h5(file_obj):
     image_height = 0
     image_channels = 0
     image_dtype = __RGB_H5_DT
-    nframes = 0
 
     # open H5 file
     f = h5py.File(file_obj["filename"], 'r')
 
     # get images and timestamps
-    images = f["data"]["images"][:]
-    timestamps = f["data"]["timestamp"][:]
+    if (file_obj["first_frame"] is True):
+        # get only first frame
+        images = f["data"]["images"][:, :, :, 0]
+        timestamps = [f["data"]["timestamp"][0]]
+    else:
+        # get all frames
+        images = f["data"]["images"][:]
+        timestamps = f["data"]["timestamp"][:]
 
-    # get file metadata
+    # read metadata
     file_metadata = {}
-    for key, value in f["metadata"]["file"].attrs.items():
-        file_metadata[key] = value
+    if (file_obj["no_metadata"] is True):
+        metadata_dict_list = [{}] * len(timestamps)
+    else:
+        # get file metadata
+        for key, value in f["metadata"]["file"].attrs.items():
+            file_metadata[key] = value
 
-    # read frame metadata
-    for i in range(0, len(timestamps)):
-        this_frame_metadata = file_metadata.copy()
-        for key, value in f["metadata"]["frame"]["frame%d" % (i)].attrs.items():
-            this_frame_metadata[key] = value
-        metadata_dict_list.append(this_frame_metadata)
+        # read frame metadata
+        for i in range(0, len(timestamps)):
+            this_frame_metadata = file_metadata.copy()
+            for key, value in f["metadata"]["frame"]["frame%d" % (i)].attrs.items():
+                this_frame_metadata[key] = value
+            metadata_dict_list.append(this_frame_metadata)
 
     # close H5 file
     f.close()
@@ -95,20 +106,8 @@ def __rgb_readfile_worker_h5(file_obj):
     image_width = images.shape[1]
     image_channels = images.shape[2]
     if (len(images.shape) == 3):
-        # single frame
-        nframes = 1
+        # force reshape to 4 dimensions
         images = images.reshape((image_height, image_width, image_channels, 1))
-    else:
-        # multiple frames
-        nframes = images.shape[3]
-
-    # verify that metadata list size matches number of images
-    if (len(metadata_dict_list) != nframes):
-        problematic = True
-        error_message = "Found different number of images and metadata records" \
-            "(images=%d, metadata=%d)" % (nframes, len(metadata_dict_list))
-        return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
-            image_width, image_height, image_channels, image_dtype
 
     # return
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
@@ -120,13 +119,16 @@ def __rgb_readfile_worker_png(file_obj):
     images = np.array([])
     metadata_dict_list = []
     problematic = False
-    first_frame = True
+    is_first = True
     error_message = ""
     image_width = 0
     image_height = 0
     image_channels = 0
     image_dtype = __RGB_PNG_DT
-    is_tar_file = False
+    working_dir_created = False
+
+    # set up working dir
+    this_working_dir = "%s/%s" % (file_obj["tar_tempdir"], ''.join(random.choices(string.ascii_lowercase, k=8)))
 
     # check if it's a tar file
     file_list = []
@@ -135,19 +137,23 @@ def __rgb_readfile_worker_png(file_obj):
         try:
             tf = tarfile.open(file_obj["filename"])
             file_list = sorted(tf.getnames())
-            tf.extractall(path=file_obj["tar_tempdir"])
+            if (file_obj["first_frame"] is True):
+                file_list = [file_list[0]]
+                tf.extract(file_list[0], path=this_working_dir)
+            else:
+                tf.extractall(path=this_working_dir)
             for i in range(0, len(file_list)):
-                file_list[i] = "%s/%s" % (file_obj["tar_tempdir"], file_list[i])
+                file_list[i] = "%s/%s" % (this_working_dir, file_list[i])
             tf.close()
-            is_tar_file = True
+            working_dir_created = True
         except Exception as e:
-            if ("file_list" in locals()):
-                # cleanup
-                for f in file_list:
-                    try:
-                        os.remove(f)
-                    except Exception:
-                        pass
+            # cleanup
+            try:
+                shutil.rmtree(this_working_dir)
+            except Exception:
+                pass
+
+            # set error message
             if (file_obj["quiet"] is False):
                 print("Failed to open file '%s' " % (file_obj["filename"]))
             problematic = True
@@ -160,37 +166,40 @@ def __rgb_readfile_worker_png(file_obj):
 
     # read each png file
     for f in file_list:
-        # process metadata
-        try:
-            # set metadata values
-            file_split = os.path.basename(f).split('_')
-            site_uid = file_split[3]
-            device_uid = file_split[4]
-            exposure = "%.03f ms" % (float(file_split[5][:-2]))
-            mode_uid = file_split[6][:-4]
+        if (file_obj["no_metadata"] is True):
+            metadata_dict_list.append({})
+        else:
+            # process metadata
+            try:
+                # set metadata values
+                file_split = os.path.basename(f).split('_')
+                site_uid = file_split[3]
+                device_uid = file_split[4]
+                exposure = "%.03f ms" % (float(file_split[5][:-2]))
+                mode_uid = file_split[6][:-4]
 
-            # set timestamp
-            if ("burst" in f or "mode-b"):
-                timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]), "%Y%m%dT%H%M%S.%f")
-            else:
-                timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]), "%Y%m%dT%H%M%S")
+                # set timestamp
+                if ("burst" in f or "mode-b"):
+                    timestamp = datetime.datetime.strptime("%sT%s.%s" % (file_split[0], file_split[1], file_split[2]), "%Y%m%dT%H%M%S.%f")
+                else:
+                    timestamp = datetime.datetime.strptime("%sT%s" % (file_split[0], file_split[1]), "%Y%m%dT%H%M%S")
 
-            # set the metadata dict
-            metadata_dict = {
-                "Project unique ID": __PNG_METADATA_PROJECT_UID,
-                "Site unique ID": site_uid,
-                "Imager unique ID": device_uid,
-                "Mode unique ID": mode_uid,
-                "Image request start": timestamp,
-                "Subframe requested exposure": exposure,
-            }
-            metadata_dict_list.append(metadata_dict)
-        except Exception as e:
-            if (file_obj["quiet"] is False):
-                print("Failed to read metadata from file '%s' " % (f))
-            problematic = True
-            error_message = "failed to read metadata: %s" % (str(e))
-            break
+                # set the metadata dict
+                metadata_dict = {
+                    "Project unique ID": __PNG_METADATA_PROJECT_UID,
+                    "Site unique ID": site_uid,
+                    "Imager unique ID": device_uid,
+                    "Mode unique ID": mode_uid,
+                    "Image request start": timestamp,
+                    "Subframe requested exposure": exposure,
+                }
+                metadata_dict_list.append(metadata_dict)
+            except Exception as e:
+                if (file_obj["quiet"] is False):
+                    print("Failed to read metadata from file '%s' " % (f))
+                problematic = True
+                error_message = "failed to read metadata: %s" % (str(e))
+                break
 
         # read png file
         try:
@@ -206,9 +215,9 @@ def __rgb_readfile_worker_png(file_obj):
                 image_matrix = np.reshape(image_np, (image_height, image_width, 1))
 
             # initialize image stack
-            if (first_frame is True):
+            if (is_first is True):
                 images = image_matrix
-                first_frame = False
+                is_first = False
             else:
                 if (image_channels > 1):
                     images = np.concatenate([images, image_matrix], axis=3)  # concatenate (on last axis)
@@ -222,10 +231,11 @@ def __rgb_readfile_worker_png(file_obj):
             error_message = "image data read failure: %s" % (str(e))
             continue  # skip to next frame
 
-    # remove untarred files
-    if (is_tar_file is True):
-        for f in file_list:
-            os.remove(f)
+    # cleanup
+    #
+    # NOTE: we only clean up the working dir if we created it
+    if (working_dir_created is True):
+        shutil.rmtree(this_working_dir)
 
     # return
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
@@ -236,7 +246,7 @@ def __rgb_readfile_worker_pgm(file_obj):
     # init
     images = np.array([])
     metadata_dict_list = []
-    first_frame = True
+    is_first = True
     metadata_dict = {}
     site_uid = ""
     device_uid = ""
@@ -245,7 +255,7 @@ def __rgb_readfile_worker_pgm(file_obj):
     image_width = 553
     image_height = 480
     image_channels = 1
-    image_dtype = __RGB_PGM_DT
+    image_dtype = np.dtype("uint16")
 
     # Set metadata values
     file_split = os.path.basename(file_obj["filename"]).split('_')
@@ -261,6 +271,8 @@ def __rgb_readfile_worker_pgm(file_obj):
         else:
             if (file_obj["quiet"] is False):
                 print("Unrecognized file type: %s" % (file_obj["filename"]))
+            problematic = True
+            error_message = "Unrecognized file type"
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     except Exception as e:
@@ -273,6 +285,10 @@ def __rgb_readfile_worker_pgm(file_obj):
 
     # read the file
     while True:
+        # break out depending on first_frame param
+        if (file_obj["first_frame"] is True and is_first is False):
+            break
+
         # read a line
         try:
             line = unzipped.readline()
@@ -296,39 +312,43 @@ def __rgb_readfile_worker_pgm(file_obj):
 
         # process line
         if (line.startswith(b'#"')):
-            # metadata lines start with #"<key>"
-            try:
-                line_decoded = line.decode("ascii")
-            except Exception as e:
-                # skip metadata line if it can't be decoded, likely corrupt file
-                if (file_obj["quiet"] is False):
-                    print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file_obj["filename"]))
-                problematic = True
-                error_message = "error decoding metadata line: %s" % (str(e))
-                continue
-
-            # split the key and value out of the metadata line
-            line_decoded_split = line_decoded.split('"')
-            key = line_decoded_split[1]
-            value = line_decoded_split[2].strip()
-
-            # add entry to dictionary
-            if (key in metadata_dict):
-                # key already exists, turn existing value into list and append new value
-                if (isinstance(metadata_dict[key], list)):
-                    # is a list already
-                    metadata_dict[key].append(value)
-                else:
-                    metadata_dict[key] = [metadata_dict[key], value]
-            else:
-                # normal metadata value
-                metadata_dict[key] = value
-
-            # split dictionaries up per frame, exposure plus initial readout is
-            # always the end of metadata for frame
-            if (key.startswith("Effective image exposure")):
-                metadata_dict_list.append(metadata_dict)
+            if (file_obj["no_metadata"] is True):
                 metadata_dict = {}
+                metadata_dict_list.append(metadata_dict)
+            else:
+                # metadata lines start with #"<key>"
+                try:
+                    line_decoded = line.decode("ascii")
+                except Exception as e:
+                    # skip metadata line if it can't be decoded, likely corrupt file
+                    if (file_obj["quiet"] is False):
+                        print("Error decoding metadata line: %s (line='%s', file='%s')" % (str(e), line, file_obj["filename"]))
+                    problematic = True
+                    error_message = "error decoding metadata line: %s" % (str(e))
+                    continue
+
+                # split the key and value out of the metadata line
+                line_decoded_split = line_decoded.split('"')
+                key = line_decoded_split[1]
+                value = line_decoded_split[2].strip()
+
+                # add entry to dictionary
+                if (key in metadata_dict):
+                    # key already exists, turn existing value into list and append new value
+                    if (isinstance(metadata_dict[key], list)):
+                        # is a list already
+                        metadata_dict[key].append(value)
+                    else:
+                        metadata_dict[key] = [metadata_dict[key], value]
+                else:
+                    # normal metadata value
+                    metadata_dict[key] = value
+
+                # split dictionaries up per frame, exposure plus initial readout is
+                # always the end of metadata for frame
+                if (key.startswith("Effective image exposure")):
+                    metadata_dict_list.append(metadata_dict)
+                    metadata_dict = {}
         elif line == b'65535\n':
             # there are 2 lines between "exposure plus read out" and the image
             # data, the first is b'480 553\n' and the second is b'65535\n'
@@ -340,6 +360,8 @@ def __rgb_readfile_worker_pgm(file_obj):
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
+                #
+                # NOTE: this is set to a different dtype that what we return on purpose.
                 image_np = np.frombuffer(image_bytes, dtype=__RGB_PGM_DT)
 
                 # change 1d numpy array into 480x553 matrix with correctly located pixels
@@ -353,9 +375,9 @@ def __rgb_readfile_worker_pgm(file_obj):
                 continue  # skip to next frame
 
             # initialize image stack
-            if first_frame:
+            if (is_first is True):
                 images = image_matrix
-                first_frame = False
+                is_first = False
             else:
                 images = np.dstack([images, image_matrix])  # depth stack images (on 3rd axis)
 
@@ -374,7 +396,7 @@ def __rgb_readfile_worker_pgm(file_obj):
         image_width, image_height, image_channels, image_dtype
 
 
-def read(file_list, workers=1, tar_tempdir=None, quiet=False):
+def read(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir=None, quiet=False):
     """
     Read in a single H5 or PNG.tar file, or an array of them. All files
     must be the same type. This also works for reading in PGM or untarred PNG
@@ -384,6 +406,11 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     :type file_list: str
     :param workers: number of worker processes to spawn, defaults to 1
     :type workers: int, optional
+    :param first_frame: only read the first frame for each file, defaults to False
+    :type first_frame: bool, optional
+    :param no_metadata: exclude reading of metadata (performance optimization if
+                        the metadata is not needed), defaults to False
+    :type no_metadata: bool, optional
     :param tar_tempdir: path to untar to, defaults to '~/.trex_imager_readfile'
     :type tar_tempdir: str, optional
     :param quiet: reduce output while reading data
@@ -395,8 +422,7 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
     # set tar path
     if (tar_tempdir is None):
         tar_tempdir = Path("%s/.trex_imager_readfile" % (str(Path.home())))
-    if not (os.path.exists(tar_tempdir)):
-        os.makedirs(tar_tempdir)
+    os.makedirs(tar_tempdir, exist_ok=True)
 
     # if input is just a single file name in a string, convert to a list to be fed to the workers
     if isinstance(file_list, str):
@@ -408,6 +434,8 @@ def read(file_list, workers=1, tar_tempdir=None, quiet=False):
         processing_list.append({
             "filename": f,
             "tar_tempdir": tar_tempdir,
+            "first_frame": first_frame,
+            "no_metadata": no_metadata,
             "quiet": quiet,
         })
 

@@ -87,17 +87,19 @@ The below text provides documentation for the available functions/procedures as 
 
 Available functions: 
 
-- `trex_imager_readfile.read_blueline(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_nir(file_list, workers=1, quiet=False)`
-- `trex_imager_readfile.read_rgb(file_list, workers=1, tar_tempdir=None, quiet=False)`
-- `trex_imager_readfile.read_spectrograph(file_list, workers=1, quiet=False)`
+- `trex_imager_readfile.read_blueline(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False)`
+- `trex_imager_readfile.read_nir(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False)`
+- `trex_imager_readfile.read_rgb(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir=None, quiet=False)`
+- `trex_imager_readfile.read_spectrograph(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False)`
 
 Parameters:
 
 - `file_list`: filename or list of filenames --> type str
-- `quiet`: reduce output while reading data --> type bool, optional
-- `tar_tempdir`: path to untar files to, defaults to '~/.trex_imager_readfile' --> type str, optional
 - `workers`: number of worker processes to spawn, defaults to 1 --> type int, optional
+- `first_frame`: only read the first frame of a 1-min file (H5, stacked PGM, PNG tarball), defaults to False --> type bool, optional
+- `no_metadata`: skip reading of metadata, defaults to False -> type bool, optional
+- `tar_tempdir`: path to untar files to, defaults to '~/.trex_imager_readfile' --> type str, optional
+- `quiet`: reduce output while reading data, defaults to False --> type bool, optional
 
 Return values:
 
@@ -189,6 +191,22 @@ If a file has issues being read in, it is placed into the `problematic_files` va
 >>> import trex_imager_readfile, glob
 >>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
 >>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, workers=4, quiet=True)
+```
+
+#### Read only the first frame of each file
+
+```
+>>> import trex_imager_readfile, glob
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, first_frame=True)
+```
+
+#### Exclude reading the metadata
+
+```
+>>> import trex_imager_readfile, glob
+>>> file_list = glob.glob("path/to/files/2020/01/01/fsmi_rgb-01/ut06/*full.h5")
+>>> img, meta, problematic_files = trex_imager_readfile.read_rgb(file_list, no_metadata=True)
 ```
 
 ### IDL
