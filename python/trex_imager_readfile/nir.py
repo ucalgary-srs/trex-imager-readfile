@@ -50,9 +50,15 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
             print("Failed to open file '%s' " % (file))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
+        try:
+            unzipped.close()
+        except Exception:
+            pass
         return images, metadata_dict_list, problematic, file, error_message
 
     # read the file
+    prev_line = None
+    line = None
     while True:
         # break out depending on first_frame param
         if (first_frame is True and is_first is False):
@@ -60,6 +66,7 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
 
         # read a line
         try:
+            prev_line = line
             line = unzipped.readline()
         except Exception as e:
             if (quiet is False):
@@ -68,6 +75,10 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
             metadata_dict_list = []
             images = np.array([])
             error_message = "error reading before image data: %s" % (str(e))
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file, error_message
 
         # break loop at end of file
@@ -122,6 +133,19 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
             # there are 2 lines between "exposure plus read out" and the image
             # data, the first is b'256 256\n' and the second is b'65535\n'
             #
+            # check the previous line to make sure the image size is what we want
+            if (prev_line is not None and prev_line.strip().decode("ascii") != "256 256"):
+                # invalid image size
+                problematic = True
+                metadata_dict_list = []
+                images = np.array([])
+                error_message = "invalid image size: %s" % (prev_line.decode("ascii").strip())
+                try:
+                    unzipped.close()
+                except Exception:
+                    pass
+                return images, metadata_dict_list, problematic, file, error_message
+
             # read image
             try:
                 # read the image size in bytes from the file

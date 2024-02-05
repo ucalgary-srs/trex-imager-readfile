@@ -7,6 +7,7 @@ import trex_imager_readfile
 DATA_DIR = "%s/data/spectrograph" % (os.path.dirname(os.path.realpath(__file__)))
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filename": "20230503_0600_luck_spect-02_spectra.pgm.gz",
@@ -42,6 +43,7 @@ def test_read_single_file(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -113,6 +115,7 @@ def test_read_multiple_files(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filename": "20230503_0600_luck_spect-02_spectra.pgm.gz",
@@ -152,6 +155,7 @@ def test_read_single_file_workers(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -254,6 +258,7 @@ def test_read_multiple_files_workers(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -367,6 +372,7 @@ def test_read_first_frame(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -439,6 +445,7 @@ def test_read_no_metadata(test_dict):
     assert img.dtype == np.uint16
 
 
+@pytest.mark.spectrograph
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [

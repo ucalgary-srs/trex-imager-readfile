@@ -7,6 +7,7 @@ import trex_imager_readfile
 DATA_DIR = "%s/data/rgb/stream0" % (os.path.dirname(os.path.realpath(__file__)))
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filename": "20210205_0600_gill_rgb-04_full.h5",
@@ -37,6 +38,7 @@ def test_read_single_file(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -92,6 +94,7 @@ def test_read_multiple_files(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filename": "20210205_0600_gill_rgb-04_full.h5",
@@ -131,6 +134,7 @@ def test_read_single_file_workers(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -233,6 +237,7 @@ def test_read_multiple_files_workers(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -336,6 +341,7 @@ def test_read_first_frame(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [
@@ -398,6 +404,7 @@ def test_read_no_metadata(test_dict):
     assert img.dtype == np.uint8
 
 
+@pytest.mark.rgb
 @pytest.mark.parametrize("test_dict", [
     {
         "filenames": [

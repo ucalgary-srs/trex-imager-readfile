@@ -282,12 +282,18 @@ $ poetry install
 
 ```console
 $ cd python
-$ make test
-[ or do each test separately ]
-$ make test-flake8
-$ make test-pylint
+$ make test-linting
 $ make test-pytest
 ```
+
+The PyTest functionality tests include several categories of tests. You can run each category separately if you want using the "markers" feature of PyTest. All markers are found in the pytest.ini file at the root of the repository.
+
+Below are some more commands for advanced usages of PyTest.
+
+- `poetry run pytest --collect-only` List all available tests
+- `poetry run pytest --markers` List all markers (includes builtin, plugin and per-project ones)
+- `poetry run pytest -v -m nir` Perform only the tests for the "nir" marker
+- `cat pytest.ini` List custom markers
 
 ### IDL
 
