@@ -174,12 +174,6 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
     :return: images, metadata dictionaries, and problematic files
     :rtype: numpy.ndarray, list[dict], list[dict]
     """
-    # pre-allocate array sizes (optimization)
-    predicted_num_frames = len(file_list) * 20
-    images = np.empty([270, 320, predicted_num_frames], dtype=__BLUELINE_DT)
-    metadata_dict_list = [{}] * predicted_num_frames
-    problematic_file_list = []
-
     # if input is just a single file name in a string, convert to a list to be fed to the workers
     if isinstance(file_list, str):
         file_list = [file_list]
@@ -223,7 +217,19 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
                 quiet=quiet,
             ))
 
-    # reorganize data
+    # derive number of frames to prepare for
+    total_num_frames = 0
+    for i in range(0, len(data)):
+        if (data[i][2] is True):
+            continue
+        total_num_frames += data[i][0].shape[2]
+
+    # pre-allocate array sizes
+    images = np.empty([270, 320, total_num_frames], dtype=__BLUELINE_DT)
+    metadata_dict_list = [{}] * total_num_frames
+    problematic_file_list = []
+
+    # populate data
     list_position = 0
     for i in range(0, len(data)):
         # check if file was problematic
@@ -232,6 +238,7 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
                 "filename": data[i][3],
                 "error_message": data[i][4],
             })
+            continue
 
         # check if any data was read in
         if (len(data[i][1]) == 0):
@@ -248,7 +255,7 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
 
     # trim unused elements from predicted array sizes
     metadata_dict_list = metadata_dict_list[0:list_position]
-    images = np.delete(images, range(list_position, predicted_num_frames), axis=2)
+    images = np.delete(images, range(list_position, total_num_frames), axis=2)
 
     # ensure entire array views as uint16
     images = images.astype(np.uint16)
