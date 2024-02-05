@@ -6,7 +6,8 @@ from multiprocessing import Pool
 from functools import partial
 
 # globals
-__NIR_IMAGE_SIZE_BYTES = 256 * 256 * 2
+__NIR_EXPECTED_HEIGHT = 256
+__NIR_EXPECTED_WIDTH = 256
 __NIR_DT = np.dtype("uint16")
 __NIR_DT = __NIR_DT.newbyteorder('>')  # force big endian byte ordering
 
@@ -131,32 +132,26 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
                     metadata_dict = {}
         elif line == b'65535\n':
             # there are 2 lines between "exposure plus read out" and the image
-            # data, the first is b'256 256\n' and the second is b'65535\n'
+            # data, the first is the image dimensions and the second is the max
+            # value
             #
-            # check the previous line to make sure the image size is what we want
-            if (prev_line is not None and prev_line.strip().decode("ascii") != "256 256"):
-                # invalid image size
-                problematic = True
-                metadata_dict_list = []
-                images = np.array([])
-                error_message = "invalid image size: %s" % (prev_line.decode("ascii").strip())
-                try:
-                    unzipped.close()
-                except Exception:
-                    pass
-                return images, metadata_dict_list, problematic, file, error_message
+            # check the previous line to get the dimensions of the image
+            prev_line_split = prev_line.decode("ascii").strip().split()
+            image_width = int(prev_line_split[0])
+            image_height = int(prev_line_split[1])
+            bytes_to_read = image_width * image_height * 2  # 16-bit image depth
 
             # read image
             try:
                 # read the image size in bytes from the file
-                image_bytes = unzipped.read(__NIR_IMAGE_SIZE_BYTES)
+                image_bytes = unzipped.read(bytes_to_read)
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
                 image_np = np.frombuffer(image_bytes, dtype=__NIR_DT)
 
-                # change 1d numpy array into 256x256 matrix with correctly located pixels
-                image_matrix = np.reshape(image_np, (256, 256, 1))
+                # change 1d numpy array into matrix with correctly located pixels
+                image_matrix = np.reshape(image_np, (image_height, image_width, 1))
             except Exception as e:
                 if (quiet is False):
                     print("Failed reading image data frame: %s" % (str(e)))
@@ -250,13 +245,17 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
 
     # derive number of frames to prepare for
     total_num_frames = 0
+    image_height = __NIR_EXPECTED_HEIGHT
+    image_width = __NIR_EXPECTED_WIDTH
     for i in range(0, len(data)):
         if (data[i][2] is True):
             continue
         total_num_frames += data[i][0].shape[2]
+        image_height = data[i][0].shape[0]
+        image_width = data[i][0].shape[1]
 
     # pre-allocate array sizes
-    images = np.empty([256, 256, total_num_frames], dtype=__NIR_DT)
+    images = np.empty([image_height, image_width, total_num_frames], dtype=__NIR_DT)
     metadata_dict_list = [{}] * total_num_frames
     problematic_file_list = []
 

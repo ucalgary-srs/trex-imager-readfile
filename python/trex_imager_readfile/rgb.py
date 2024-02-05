@@ -13,7 +13,8 @@ from pathlib import Path
 from multiprocessing import Pool
 
 # static globals
-__RGB_PGM_IMAGE_SIZE_BYTES = 480 * 553 * 2
+__RGB_PGM_EXPECTED_HEIGHT = 480
+__RGB_PGM_EXPECTED_WIDTH = 553
 __RGB_PGM_DT = np.dtype("uint16")
 __RGB_PGM_DT = __RGB_PGM_DT.newbyteorder('>')  # force big endian byte ordering
 __RGB_PNG_DT = np.dtype("uint8")
@@ -263,8 +264,8 @@ def __rgb_readfile_worker_pgm(file_obj):
     device_uid = ""
     problematic = False
     error_message = ""
-    image_width = 553
-    image_height = 480
+    image_width = __RGB_PGM_EXPECTED_WIDTH
+    image_height = __RGB_PGM_EXPECTED_HEIGHT
     image_channels = 1
     image_dtype = np.dtype("uint16")
 
@@ -303,6 +304,8 @@ def __rgb_readfile_worker_pgm(file_obj):
             image_width, image_height, image_channels, image_dtype
 
     # read the file
+    prev_line = None
+    line = None
     while True:
         # break out depending on first_frame param
         if (file_obj["first_frame"] is True and is_first is False):
@@ -310,6 +313,7 @@ def __rgb_readfile_worker_pgm(file_obj):
 
         # read a line
         try:
+            prev_line = line
             line = unzipped.readline()
         except Exception as e:
             if (file_obj["quiet"] is False):
@@ -374,12 +378,19 @@ def __rgb_readfile_worker_pgm(file_obj):
                     metadata_dict = {}
         elif line == b'65535\n':
             # there are 2 lines between "exposure plus read out" and the image
-            # data, the first is b'480 553\n' and the second is b'65535\n'
+            # data, the first is the image dimensions and the second is the max
+            # value
             #
+            # check the previous line to get the dimensions of the image
+            prev_line_split = prev_line.decode("ascii").strip().split()
+            image_width = int(prev_line_split[0])
+            image_height = int(prev_line_split[1])
+            bytes_to_read = image_width * image_height * 2  # 16-bit image depth
+
             # read image
             try:
                 # read the image size in bytes from the file
-                image_bytes = unzipped.read(__RGB_PGM_IMAGE_SIZE_BYTES)
+                image_bytes = unzipped.read(bytes_to_read)
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
@@ -387,8 +398,8 @@ def __rgb_readfile_worker_pgm(file_obj):
                 # NOTE: this is set to a different dtype that what we return on purpose.
                 image_np = np.frombuffer(image_bytes, dtype=__RGB_PGM_DT)
 
-                # change 1d numpy array into 480x553 matrix with correctly located pixels
-                image_matrix = np.reshape(image_np, (480, 553, 1))
+                # change 1d numpy array into matrix with correctly located pixels
+                image_matrix = np.reshape(image_np, (image_height, image_width, 1))
             except Exception as e:
                 if (file_obj["quiet"] is False):
                     print("Failed reading image data frame: %s" % (str(e)))

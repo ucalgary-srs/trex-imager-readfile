@@ -6,7 +6,8 @@ from multiprocessing import Pool
 from functools import partial
 
 # globals
-__BLUELINE_IMAGE_SIZE_BYTES = 270 * 320 * 2
+__BLUELINE_EXPECTED_HEIGHT = 270
+__BLUELINE_EXPECTED_WIDTH = 320
 __BLUELINE_DT = np.dtype("uint16")
 __BLUELINE_DT = __BLUELINE_DT.newbyteorder('>')  # force big endian byte ordering
 
@@ -61,6 +62,8 @@ def __blueline_readfile_worker(file, first_frame=False, no_metadata=False, quiet
         return images, metadata_dict_list, problematic, file, error_message
 
     # read the file
+    prev_line = None
+    line = None
     while True:
         # break out depending on first_frame param
         if (first_frame is True and is_first is False):
@@ -68,6 +71,7 @@ def __blueline_readfile_worker(file, first_frame=False, no_metadata=False, quiet
 
         # read a line
         try:
+            prev_line = line
             line = unzipped.readline()
         except Exception as e:
             if (quiet is False):
@@ -132,19 +136,26 @@ def __blueline_readfile_worker(file, first_frame=False, no_metadata=False, quiet
                     metadata_dict = {}
         elif line == b'65535\n':
             # there are 2 lines between "exposure plus read out" and the image
-            # data, the first is b'270 320\n' and the second is b'65535\n'
+            # data, the first is the image dimensions and the second is the max
+            # value
             #
+            # check the previous line to get the dimensions of the image
+            prev_line_split = prev_line.decode("ascii").strip().split()
+            image_width = int(prev_line_split[0])
+            image_height = int(prev_line_split[1])
+            bytes_to_read = image_width * image_height * 2  # 16-bit image depth
+
             # read image
             try:
                 # read the image size in bytes from the file
-                image_bytes = unzipped.read(__BLUELINE_IMAGE_SIZE_BYTES)
+                image_bytes = unzipped.read(bytes_to_read)
 
                 # format bytes into numpy array of unsigned shorts (2byte numbers, 0-65536),
                 # effectively an array of pixel values
                 image_np = np.frombuffer(image_bytes, dtype=__BLUELINE_DT)
 
-                # change 1d numpy array into 270x320 matrix with correctly located pixels
-                image_matrix = np.reshape(image_np, (270, 320, 1))
+                # change 1d numpy array into matrix with correctly located pixels
+                image_matrix = np.reshape(image_np, (image_height, image_width, 1))
             except Exception as e:
                 if (quiet is False):
                     print("Failed reading image data frame: %s" % (str(e)))
@@ -238,13 +249,17 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
 
     # derive number of frames to prepare for
     total_num_frames = 0
+    image_height = __BLUELINE_EXPECTED_HEIGHT
+    image_width = __BLUELINE_EXPECTED_WIDTH
     for i in range(0, len(data)):
         if (data[i][2] is True):
             continue
         total_num_frames += data[i][0].shape[2]
+        image_height = data[i][0].shape[0]
+        image_width = data[i][0].shape[1]
 
     # pre-allocate array sizes
-    images = np.empty([270, 320, total_num_frames], dtype=__BLUELINE_DT)
+    images = np.empty([image_height, image_width, total_num_frames], dtype=__BLUELINE_DT)
     metadata_dict_list = [{}] * total_num_frames
     problematic_file_list = []
 
