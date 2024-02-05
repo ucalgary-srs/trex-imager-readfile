@@ -44,12 +44,20 @@ def __spectrograph_readfile_worker(file, first_frame=False, no_metadata=False, q
                 print("Unrecognized file type: %s" % (file))
             problematic = True
             error_message = "Unrecognized file type"
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file, error_message
     except Exception as e:
         if (quiet is False):
             print("Failed to open file '%s' " % (file))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
+        try:
+            unzipped.close()
+        except Exception:
+            pass
         return images, metadata_dict_list, problematic, file, error_message
 
     # read the file
@@ -68,6 +76,10 @@ def __spectrograph_readfile_worker(file, first_frame=False, no_metadata=False, q
             metadata_dict_list = []
             images = np.array([])
             error_message = "error reading before image data: %s" % (str(e))
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file, error_message
 
         # break loop at end of file
@@ -150,6 +162,13 @@ def __spectrograph_readfile_worker(file, first_frame=False, no_metadata=False, q
 
     # close gzip file
     unzipped.close()
+
+    # check to see if the image is empty
+    if (images.size == 0):
+        if (quiet is False):
+            print("Error reading image file: found no image data")
+        problematic = True
+        error_message = "no image data"
 
     # return
     return images, metadata_dict_list, problematic, file, error_message

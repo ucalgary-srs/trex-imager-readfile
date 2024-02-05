@@ -175,6 +175,13 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
     # close gzip file
     unzipped.close()
 
+    # check to see if the image is empty
+    if (images.size == 0):
+        if (quiet is False):
+            print("Error reading image file: found no image data")
+        problematic = True
+        error_message = "no image data"
+
     # return
     return images, metadata_dict_list, problematic, file, error_message
 
@@ -246,6 +253,7 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, quiet=False
     for i in range(0, len(data)):
         if (data[i][2] is True):
             continue
+        print(data[i][0].shape)
         total_num_frames += data[i][0].shape[2]
 
     # pre-allocate array sizes

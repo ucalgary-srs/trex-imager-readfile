@@ -158,6 +158,10 @@ def __rgb_readfile_worker_png(file_obj):
                 print("Failed to open file '%s' " % (file_obj["filename"]))
             problematic = True
             error_message = "failed to open file: %s" % (str(e))
+            try:
+                tf.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     else:
@@ -237,6 +241,13 @@ def __rgb_readfile_worker_png(file_obj):
     if (working_dir_created is True):
         shutil.rmtree(this_working_dir)
 
+    # check to see if the image is empty
+    if (images.size == 0):
+        if (file_obj["quiet"] is False):
+            print("Error reading image file: found no image data")
+        problematic = True
+        error_message = "no image data"
+
     # return
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
         image_width, image_height, image_channels, image_dtype
@@ -273,6 +284,10 @@ def __rgb_readfile_worker_pgm(file_obj):
                 print("Unrecognized file type: %s" % (file_obj["filename"]))
             problematic = True
             error_message = "Unrecognized file type"
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
     except Exception as e:
@@ -280,6 +295,10 @@ def __rgb_readfile_worker_pgm(file_obj):
             print("Failed to open file '%s' " % (file_obj["filename"]))
         problematic = True
         error_message = "failed to open file: %s" % (str(e))
+        try:
+            unzipped.close()
+        except Exception:
+            pass
         return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
             image_width, image_height, image_channels, image_dtype
 
@@ -299,6 +318,10 @@ def __rgb_readfile_worker_pgm(file_obj):
             metadata_dict_list = []
             images = np.array([])
             error_message = "error reading before image data: %s" % (str(e))
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
                 image_width, image_height, image_channels, image_dtype
 
@@ -390,6 +413,13 @@ def __rgb_readfile_worker_pgm(file_obj):
 
     if ("Imager unique ID" not in metadata_dict):
         metadata_dict["Imager unique ID"] = device_uid
+
+    # check to see if the image is empty
+    if (images.size == 0):
+        if (file_obj["quiet"] is False):
+            print("Error reading image file: found no image data")
+        problematic = True
+        error_message = "no image data"
 
     # return
     return images, metadata_dict_list, problematic, file_obj["filename"], error_message, \
