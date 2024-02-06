@@ -1,4 +1,4 @@
-__version__ = "1.6.5"
+__version__ = "1.6.6"
 
 # core functions for easy use
 from .blueline import read as read_blueline

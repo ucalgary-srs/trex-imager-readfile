@@ -20,10 +20,6 @@ __RGB_PGM_DT = __RGB_PGM_DT.newbyteorder('>')  # force big endian byte ordering
 __RGB_PNG_DT = np.dtype("uint8")
 __RGB_H5_DT = np.dtype("uint8")
 __PNG_METADATA_PROJECT_UID = "trex"
-__FLEX_NOMINAL_FRAME_COUNT = 2
-__FLEX_BURST_FRAME_COUNT = 50
-__EXPECTED_NOMINAL_FRAME_COUNT = 20 + __FLEX_NOMINAL_FRAME_COUNT
-__EXPECTED_BURST_FRAME_COUNT = 150 + __FLEX_BURST_FRAME_COUNT
 
 
 def __trex_readfile_worker(file_obj):
@@ -499,7 +495,7 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir
             pool_data = pool.map(__trex_readfile_worker, processing_list)
         except KeyboardInterrupt:
             pool.terminate()  # gracefully kill children
-            return np.empty((0, 0, 0)), [], []
+            return np.empty((0, 0, 0, 0)), [], []
         else:
             pool.close()
             pool.join()
@@ -515,21 +511,25 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir
     image_channels = pool_data[0][7]
     image_dtype = pool_data[0][8]
 
-    # set max predicted frame count
-    if ("burst" in f or "mode-b" in f):
-        predicted_num_frames = len(processing_list) * __EXPECTED_BURST_FRAME_COUNT
-    else:
-        predicted_num_frames = len(processing_list) * __EXPECTED_NOMINAL_FRAME_COUNT
+    # derive number of frames to prepare for
+    total_num_frames = 0
+    for i in range(0, len(pool_data)):
+        if (pool_data[i][2] is True):
+            continue
+        if (image_channels > 1):
+            total_num_frames += pool_data[i][0].shape[3]
+        else:
+            total_num_frames += pool_data[i][0].shape[2]
 
-    # pre-allocate array sizes (optimization)
+    # pre-allocate array sizes
     if (image_channels > 1):
-        images = np.empty([image_height, image_width, image_channels, predicted_num_frames], dtype=image_dtype)
+        images = np.empty([image_height, image_width, image_channels, total_num_frames], dtype=image_dtype)
     else:
-        images = np.empty([image_height, image_width, predicted_num_frames], dtype=image_dtype)
-    metadata_dict_list = [{}] * predicted_num_frames
+        images = np.empty([image_height, image_width, total_num_frames], dtype=image_dtype)
+    metadata_dict_list = [{}] * total_num_frames
     problematic_file_list = []
 
-    # reorganize data
+    # populate data
     list_position = 0
     for i in range(0, len(pool_data)):
         # check if file was problematic
@@ -538,6 +538,7 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir
                 "filename": pool_data[i][3],
                 "error_message": pool_data[i][4],
             })
+            continue
 
         # check if any data was read in
         if (len(pool_data[i][1]) == 0):
@@ -545,24 +546,27 @@ def read(file_list, workers=1, first_frame=False, no_metadata=False, tar_tempdir
 
         # find actual number of frames, this may differ from predicted due to dropped frames, end
         # or start of imaging
-        real_num_frames = pool_data[i][0].shape[-1]
+        if (image_channels > 1):
+            this_num_frames = pool_data[i][0].shape[3]
+        else:
+            this_num_frames = pool_data[i][0].shape[2]
 
         # metadata dictionary list at data[][1]
-        metadata_dict_list[list_position:list_position + real_num_frames] = pool_data[i][1]
+        metadata_dict_list[list_position:list_position + this_num_frames] = pool_data[i][1]
         if (image_channels > 1):
-            images[:, :, :, list_position:list_position + real_num_frames] = pool_data[i][0]
+            images[:, :, :, list_position:list_position + this_num_frames] = pool_data[i][0]
         else:
-            images[:, :, list_position:list_position + real_num_frames] = pool_data[i][0]
-        list_position = list_position + real_num_frames  # advance list position
+            images[:, :, list_position:list_position + this_num_frames] = pool_data[i][0]
+        list_position = list_position + this_num_frames  # advance list position
 
     # trim unused elements from predicted array sizes
     metadata_dict_list = metadata_dict_list[0:list_position]
     if (image_channels > 1):
-        images = np.delete(images, range(list_position, predicted_num_frames), axis=3)
+        images = np.delete(images, range(list_position, total_num_frames), axis=3)
     else:
-        images = np.delete(images, range(list_position, predicted_num_frames), axis=2)
+        images = np.delete(images, range(list_position, total_num_frames), axis=2)
 
-    # ensure entire array views as the dtype
+    # ensure entire array views as the desired dtype
     images = images.astype(image_dtype)
 
     # return

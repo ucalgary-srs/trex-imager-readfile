@@ -45,6 +45,10 @@ def __nir_readfile_worker(file, first_frame=False, no_metadata=False, quiet=Fals
                 print("Unrecognized file type: %s" % (file))
             problematic = True
             error_message = "Unrecognized file type"
+            try:
+                unzipped.close()
+            except Exception:
+                pass
             return images, metadata_dict_list, problematic, file, error_message
     except Exception as e:
         if (quiet is False):
