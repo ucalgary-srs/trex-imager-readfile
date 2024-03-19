@@ -7,7 +7,7 @@
 ;     TREX_IMAGER_READFILE
 ;
 ; VERSION:
-;     1.2.0
+;     1.2.1
 ;
 ; PURPOSE:
 ;     This program is intended to be a general tool for reading
@@ -202,6 +202,7 @@ function __trex_parse_pgm_comments,comments,metadata,MINIMAL_METADATA=minimal_me
 
   ; set image request start value
   timestring = (stregex(tmp,'"image request start" *([^#]+) utc',/SUBEXPR,/EXTRACT))[1]
+  if (timestring eq "") then timestring = (stregex(tmp,'"exposure start time" *([^#]+) utc',/SUBEXPR,/EXTRACT))[1]
   if (timestring eq "") then timestring = (stregex(tmp,'time *([^#]+) *$',/SUBEXPR,/EXTRACT))[1]
   if (timestring eq "") then begin
     message,'Error - could not find time information'
