@@ -1,12 +1,12 @@
 # TREx All-Sky Imager Raw Data Readfile
 
-![Support languages](https://img.shields.io/badge/Supported%20Languages-IDL%2C%20Python-lightgrey)
-![Support platforms](https://img.shields.io/badge/Supported%20Platforms-Windows%2C%20Linux%2C%20Mac-lightgrey)
+![Supported languages](https://img.shields.io/badge/Supported%20Languages-IDL%2C%20Python-lightgrey)
+![Supported platforms](https://img.shields.io/badge/Supported%20Platforms-Windows%2C%20Linux%2C%20Mac-lightgrey)
 ![MIT License](https://img.shields.io/badge/License-MIT-brightgreen)
 [![Support Python versions](https://img.shields.io/badge/Supported%20Python-3.8%20%7C%203.8%20%7C%203.9%20%7C%203.10%20%7C%203.11-blue)](https://pypi.python.org/pypi/trex-imager-readfile/)
 ![Supported IDL versions](https://img.shields.io/badge/Supported%20IDL-8.8.1%2B-blue)
 [![Python Version](https://img.shields.io/pypi/v/trex-imager-readfile.svg?label=Python%20Package)](https://pypi.python.org/pypi/trex-imager-readfile)
-![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.2.2-blue)
+![IDL Version](https://img.shields.io/badge/IDL%20Package-v1.3.0-blue)
 [![Github Actions - Tests](https://github.com/ucalgary-aurora/trex-imager-readfile/workflows/tests/badge.svg)](https://github.com/ucalgary-aurora/trex-imager-readfile/actions?query=workflow%3Atests)
 
 This repository contains code for reading Transition Region Explorer (TREx) All-Sky Imager (ASI) raw data. The data can be found at https://data.phys.ucalgary.ca.

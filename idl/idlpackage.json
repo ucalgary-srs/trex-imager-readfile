@@ -1,8 +1,8 @@
 {
     "Name": "trex-imager-readfile",
-    "Version": "1.2.2",
+    "Version": "1.3.0",
     "Author": "Darren Chaddock",
-    "Date": "2024-06-20",
+    "Date": "2024-10-27",
     "Dependencies": [
         {
             "Name": "IDL",
